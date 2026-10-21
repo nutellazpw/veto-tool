@@ -41,6 +41,7 @@
     <div id="app">
       <section class="teams" id="teams"></section>
       <section class="tour-block" id="banner"></section>
+      <section class="timeline" id="timeline"></section>
       <section id="sideWrap"><div class="sidepick" id="side"></div></section>
       <section class="maps" id="maps"></section>
       <section id="resWrap">
@@ -78,6 +79,7 @@
     document.title = `Live Veto · ${v.s.teams.a.name} vs ${v.s.teams.b.name}`;
     UI.teams(document.getElementById('teams'), v);
     UI.banner(document.getElementById('banner'), v);
+    UI.timeline(document.getElementById('timeline'), v);
 
     const isSide = v.current && v.current.type === 'side';
     document.getElementById('sideWrap').style.display = isSide ? 'block' : 'none';

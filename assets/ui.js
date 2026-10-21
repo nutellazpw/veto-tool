@@ -26,6 +26,38 @@ const UI = (() => {
       <div class="progress">${prog}</div>`;
   }
 
+  /** Step strip: one box per ban / pick / decider, side choice folded into its map. */
+  function timeline(el, v) {
+    const boxes = [];
+    let n = 0;
+    v.steps.forEach((st, i) => {
+      if (st.type === 'side') return;
+      const act = v.s.actions[i];
+      const next = v.steps[i + 1];
+      const sideIdx = next && next.type === 'side' ? i + 1 : -1;
+      const sideAct = sideIdx > -1 ? v.s.actions[sideIdx] : null;
+      const isNow = v.idx === i || (sideIdx > -1 && v.idx === sideIdx);
+      let value = 'Waiting', state = 'wait';
+      if (act) { value = RV.mapName(v, act.map); state = 'done'; }
+      else if (isNow) { value = st.type === 'decider' ? 'Last map' : (st.type === 'ban' ? 'Banning…' : 'Picking…'); state = 'now'; }
+      let side = '';
+      if (sideAct) side = `<div class="tl-side ${sideAct.side}">${esc(RV.teamName(v, sideAct.team))} · ${RV.sideLabel(sideAct.side)}</div>`;
+      else if (sideIdx > -1 && v.idx === sideIdx) side = `<div class="tl-side pending">${esc(RV.teamName(v, next.team))} picks side…</div>`;
+      else if (st.type === 'decider' && act && v.s.deciderSide === 'knife' && v.s.sidePick) side = '<div class="tl-side">Knife for side</div>';
+      else if (st.type === 'decider' && act && !v.s.sidePick) side = '';
+      const who = st.type === 'decider' ? 'Decider' : RV.teamName(v, st.team);
+      boxes.push(`
+        <div class="tl ${st.type} ${state}${isNow ? ' current' : ''}">
+          <div class="tl-top"><span class="tl-n">${++n}</span><span class="tl-type">${st.type}</span></div>
+          <div class="tl-who">${esc(who)}</div>
+          <div class="tl-val">${esc(value)}</div>
+          ${side}
+        </div>`);
+    });
+    el.style.setProperty('--cols', boxes.length);
+    el.innerHTML = boxes.join('');
+  }
+
   function sideTag(v, team, side) {
     return `<span class="tag side ${side}">${esc(RV.teamName(v, team))} · ${RV.sideLabel(side)}</span>`;
   }
@@ -112,5 +144,5 @@ const UI = (() => {
     });
   }
 
-  return { teams, banner, maps, sidePicker, results, confirmMap };
+  return { teams, banner, timeline, maps, sidePicker, results, confirmMap };
 })();
