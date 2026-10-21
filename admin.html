@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="sr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Veto Admin · Relog Media</title>
+<link rel="icon" href="assets/favicon.png">
+<link rel="stylesheet" href="assets/app.css">
+<style>
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .layout { display: grid; grid-template-columns: 400px minmax(0,1fr); gap: 20px; align-items: start; }
+  .col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+  .card { border: 1px solid var(--line); border-radius: var(--r); padding: 24px; }
+  .card h3 { font-weight: var(--fw-semibold); font-size: 28px; line-height: 32px; text-transform: uppercase; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .card h3 .count { color: var(--orangeColor); font-size: 18px; }
+  .hint { font-size: 15px; color: var(--grey-2); margin-top: 12px; line-height: 1.4; }
+  .hint code { color: #fff; }
+  label.f { display: block; font-size: 15px; font-weight: var(--fw-semibold); text-transform: uppercase; color: var(--orangeColor); margin: 18px 0 2px; }
+  label.f:first-of-type { margin-top: 0; }
+  .in { width: 100%; background: transparent; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; color: #fff; padding: 7px 2px; font: inherit; font-size: 22px; outline: none; }
+  .in:focus { border-bottom-color: var(--orangeColor); }
+  .row { display: flex; gap: 12px; align-items: flex-end; }
+  .row .in { flex: 1; }
+  select.in { appearance: none; cursor: pointer; background-image: linear-gradient(45deg, transparent 50%, #fff 50%), linear-gradient(135deg, #fff 50%, transparent 50%); background-position: calc(100% - 14px) 55%, calc(100% - 9px) 55%; background-size: 5px 5px; background-repeat: no-repeat; }
+  select.in option { background: #000; }
+
+  .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 8px; }
+  .seg button { padding: 10px 6px; border: 2px solid var(--line); border-radius: 0 10px 0 10px; text-align: center; transition: border-color .15s; }
+  .seg button:hover { border-color: #f5650069; }
+  .seg button b { display: block; font-size: 22px; font-weight: var(--fw-semibold); line-height: 1.1; }
+  .seg button small { display: block; font-size: 12px; color: var(--grey-2); letter-spacing: .12em; margin-top: 2px; }
+  .seg button.on { border-color: var(--orangeColor); }
+  .seg button.on b { color: var(--orangeColor); }
+
+  .toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; font-size: 17px; }
+  .sw { position: relative; width: 50px; height: 26px; border: 2px solid var(--line); border-radius: 0 10px 0 10px; flex: 0 0 auto; transition: .15s; }
+  .sw::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; background: var(--grey); border-radius: 0 5px 0 5px; transition: .15s; }
+  .sw.on { border-color: var(--orangeColor); }
+  .sw.on::after { left: 27px; background: var(--orangeColor); }
+
+  .pool { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .pool button { display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; border: 2px solid var(--line); border-radius: 0 10px 0 10px; font-weight: var(--fw-semibold); text-transform: uppercase; font-size: 17px; transition: border-color .15s; }
+  .pool button i { font-style: normal; font-size: 12px; color: var(--grey); }
+  .pool button.on { border-color: var(--orangeColor); }
+  .pool button.on i { color: var(--orangeColor); }
+
+  .teamcfg { display: grid; grid-template-columns: 76px 1fr; gap: 16px; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--grey); }
+  .teamcfg:first-of-type { padding-top: 0; }
+  .teamcfg .logo-box { width: 76px; height: 76px; border: 1px dashed var(--line); border-radius: 0 10px 0 10px; display: grid; place-items: center; overflow: hidden; cursor: pointer; transition: border-color .15s; }
+  .teamcfg .logo-box:hover { border-color: var(--orangeColor); }
+  .teamcfg .logo-box img { width: 100%; height: 100%; object-fit: contain; padding: 6px; }
+  .teamcfg .logo-box .initial { font-size: 12px; color: var(--grey-3); font-weight: var(--fw-semibold); text-align: center; text-transform: uppercase; line-height: 1.2; }
+  .teamcfg .rm { color: var(--grey-3); text-transform: uppercase; font-size: 13px; font-weight: var(--fw-semibold); margin-top: 6px; }
+  .teamcfg .rm:hover { color: var(--bad); }
+
+  .link-label { font-size: 15px; font-weight: var(--fw-semibold); text-transform: uppercase; color: var(--orangeColor); margin-top: 16px; }
+  .link-label:first-of-type { margin-top: 0; }
+  .link { display: flex; gap: 10px; align-items: center; margin-top: 6px; }
+  .link code { flex: 1; min-width: 0; font-size: 14px; padding: 7px 2px; border-bottom: 1px solid var(--line); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ddd; }
+
+  textarea.summary { width: 100%; min-height: 240px; resize: vertical; padding: 14px 16px; background: #000; color: #eee; border: 1px solid var(--line); border-radius: 0 10px 0 10px; font: 15px/1.55 ui-monospace, Menlo, Consolas, monospace; outline: none; }
+  #sideWrap { display: none; }
+  .live-col { display: flex; flex-direction: column; gap: 20px; }
+  .note { font-size: 15px; color: var(--grey-2); margin-bottom: -6px; }
+  .live-col .teams { grid-template-columns: 1fr auto 1fr; }
+  .live-col .team .name { font-size: 30px; line-height: 32px; }
+  .live-col .step-title { font-size: 38px; line-height: 42px; }
+  .live-col .maps { grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .live-col .map .mname { font-size: 22px; line-height: 24px; }
+
+  .login { min-height: 60vh; display: grid; place-items: center; }
+  .login .card { width: min(440px, 100%); padding: 30px; }
+  .login h2 { font-weight: var(--fw-semibold); font-size: 40px; line-height: 44px; text-transform: uppercase; }
+
+  @media (max-width: 1150px) { .layout { grid-template-columns: 1fr; } }
+  @media (max-width: 760px) { .live-col .maps { grid-template-columns: repeat(2, 1fr); } .live-col .teams { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="conn">Offline · ponovno povezivanje</div>
+
+<header class="site-header">
+  <div class="container header-in">
+    <a class="header-logo" href="https://relog.gg" target="_blank" rel="noopener"><img src="assets/relog-logo.png" alt="Relog Media"></a>
+    <nav class="header-nav">
+      <a class="header-item-link active" href="admin">Admin</a>
+      <a class="header-item-link" id="navTablet" href="tablet" target="_blank">Tablet</a>
+      <a class="header-item-link" href="overlay?preview" target="_blank">Overlay</a>
+    </nav>
+  </div>
+</header>
+
+<main class="site-holder"><div class="container">
+<div id="login" class="login" style="display:none">
+  <form class="card" id="loginForm">
+    <div class="kicker">Veto admin</div>
+    <h2>Prijava</h2>
+    <label class="f" for="pw" style="margin-top:22px">Admin lozinka</label>
+    <input class="in" type="password" id="pw" autocomplete="current-password">
+    <button class="btn" style="width:100%;margin-top:26px">Uđi</button>
+  </form>
+</div>
+
+<div id="app" style="display:none">
+  <div class="page-head">
+    <div>
+      <div class="kicker" id="kick">Relog Media</div>
+      <h1 class="page-title">Veto admin</h1>
+    </div>
+    <div class="actions">
+      <button class="btn ghost sm" id="bUndo">↶ Undo</button>
+      <button class="btn ghost sm" id="bSwap">⇄ Zameni timove</button>
+      <button class="btn danger sm" id="bRestart">⟲ Restart veta</button>
+      <button class="btn ghost sm" id="bLogout">Odjava</button>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="col">
+      <div class="card">
+        <h3>Meč</h3>
+        <label class="f" for="title">Naziv turnira (zaglavlje tableta)</label>
+        <div class="row"><input class="in" id="title" maxlength="60"><button class="btn sm" data-save>Sačuvaj</button></div>
+
+        <label class="f">Format</label>
+        <div class="seg" id="format">
+          <button data-f="bo1"><b>BO1</b><small>B B B B B B D</small></button>
+          <button data-f="bo3"><b>BO3</b><small>B B P P B B D</small></button>
+          <button data-f="bo5"><b>BO5</b><small>B B P P P P D</small></button>
+        </div>
+
+        <div class="toggle"><span>Biranje strane (CT/T) posle picka</span><button class="sw" id="sidePick" aria-label="Side pick"></button></div>
+        <label class="f" for="deciderSide">Stranu na decideru bira</label>
+        <select class="in" id="deciderSide">
+          <option value="knife">Knife runda</option>
+          <option value="a">Team A</option>
+          <option value="b">Team B</option>
+        </select>
+        <p class="hint">Team A uvek počinje veto. Za promenu ko počinje koristi „Zameni timove". Promena formata, strane ili map poola resetuje veto.</p>
+      </div>
+
+      <div class="card">
+        <h3>Timovi</h3>
+        <div class="teamcfg" data-team="a">
+          <label class="logo-box" title="Klikni za upload logoa"><input type="file" accept="image/*" hidden></label>
+          <div><label class="f" style="margin:0">Team A · počinje veto</label><input class="in" maxlength="32"><button class="rm" type="button">Ukloni logo</button></div>
+        </div>
+        <div class="teamcfg" data-team="b">
+          <label class="logo-box" title="Klikni za upload logoa"><input type="file" accept="image/*" hidden></label>
+          <div><label class="f" style="margin:0">Team B</label><input class="in" maxlength="32"><button class="rm" type="button">Ukloni logo</button></div>
+        </div>
+        <button class="btn" style="width:100%;margin-top:18px" data-save>Sačuvaj imena</button>
+      </div>
+
+      <div class="card">
+        <h3>Map pool <span class="count" id="poolCount">7/7</span></h3>
+        <div class="pool" id="pool"></div>
+        <button class="btn" id="bPool" style="width:100%;margin-top:18px">Primeni pool</button>
+        <p class="hint">Tačno 7 mapa. Slike mapa idu u <code>assets/maps/</code> (npr. <code>mirage.jpg</code>).</p>
+      </div>
+
+      <div class="card">
+        <h3>Linkovi</h3>
+        <div class="link-label">Tablet za timove</div>
+        <div class="link"><code id="lTablet"></code><button class="btn sm" data-copy="lTablet">Kopiraj</button></div>
+        <div class="link-label">Overlay (vMix / OBS browser input, 1920×1080)</div>
+        <div class="link"><code id="lOverlay"></code><button class="btn sm" data-copy="lOverlay">Kopiraj</button></div>
+      </div>
+    </div>
+
+    <div class="col live-col">
+      <section class="teams" id="teams"></section>
+      <section class="tour-block" id="banner"></section>
+      <section id="sideWrap"><div class="sidepick" id="side"></div></section>
+      <div class="note">Admin može da odigra korak umesto tableta — klik na mapu.</div>
+      <section class="maps" id="maps"></section>
+      <div class="card">
+        <h3>Rezime veta <button class="btn sm" id="bCopySum">Kopiraj tekst</button></h3>
+        <textarea class="summary" id="summary" readonly></textarea>
+      </div>
+    </div>
+  </div>
+</div>
+</div></main>
+
+<footer class="site-footer">
+  <div class="container footer-content-items">
+    <img class="footer-logo" src="assets/relog-logo-footer-white.png" alt="Relog Media">
+    <div class="footer-rights">© <span id="yr"></span> <b>Relog Media</b> All Rights Reserved</div>
+  </div>
+</footer>
+
+<script src="assets/app.js"></script>
+<script src="assets/ui.js"></script>
+<script>
+  const $ = s => document.querySelector(s);
+  let token = localStorage.getItem('rv_token') || '';
+  let tabletKey = '';
+  let poolSel = [];
+  let poolDirty = false;
+  let started = false;
+
+  async function login(t) {
+    const r = await fetch('api.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'auth', token: t }) });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'Pogrešna lozinka');
+    token = t; tabletKey = j.tabletKey || '';
+    localStorage.setItem('rv_token', t);
+    $('#login').style.display = 'none'; $('#app').style.display = 'block';
+    if (!started) { started = true; RV.poll(render, 700); }
+  }
+
+  $('#loginForm').addEventListener('submit', e => {
+    e.preventDefault();
+    login($('#pw').value).catch(err => RV.toast(err.message, true));
+  });
+  $('#bLogout').onclick = () => { localStorage.removeItem('rv_token'); location.reload(); };
+
+  const act = (body, okMsg) => RV.post({ token, ...body }).then(() => okMsg && RV.toast(okMsg)).catch(e => RV.toast(e.message, true));
+  const hasProgress = () => RV.payload && RV.payload.state.actions.length > 0;
+  const confirmReset = () => !hasProgress() || confirm('Ovo resetuje veto koji je u toku. Nastavi?');
+
+  $('#bUndo').onclick = () => act({ action: 'undo' }, 'Poslednji korak poništen');
+  $('#bRestart').onclick = () => confirm('Restartovati veto? Timovi i podešavanja ostaju.') && act({ action: 'restart' }, 'Veto restartovan');
+  $('#bSwap').onclick = () => confirmReset() && act({ action: 'swap' }, 'Timovi zamenjeni');
+
+  function saveNames() {
+    act({
+      action: 'config',
+      title: $('#title').value,
+      teams: { a: { name: document.querySelector('[data-team=a] .in').value }, b: { name: document.querySelector('[data-team=b] .in').value } },
+    }, 'Sačuvano');
+  }
+  document.querySelectorAll('[data-save]').forEach(b => b.onclick = saveNames);
+  document.querySelectorAll('#title, .teamcfg .in').forEach(i => i.addEventListener('keydown', e => e.key === 'Enter' && saveNames()));
+
+  document.querySelectorAll('#format button').forEach(b => b.onclick = () => {
+    if (RV.payload.state.format === b.dataset.f) return;
+    confirmReset() && act({ action: 'config', format: b.dataset.f }, `Format: ${b.dataset.f.toUpperCase()}`);
+  });
+  $('#sidePick').onclick = () => confirmReset() && act({ action: 'config', sidePick: !RV.payload.state.sidePick });
+  $('#deciderSide').onchange = e => {
+    if (confirmReset()) act({ action: 'config', deciderSide: e.target.value });
+    else e.target.value = RV.payload.state.deciderSide;
+  };
+
+  $('#bPool').onclick = () => {
+    if (poolSel.length !== 7) return RV.toast('Izaberi tačno 7 mapa', true);
+    if (!confirmReset()) return;
+    // keep catalog order for a tidy grid
+    const ordered = Object.keys(RV.payload.catalog).filter(id => poolSel.includes(id));
+    act({ action: 'config', pool: ordered }, 'Map pool primenjen').then(() => poolDirty = false);
+  };
+
+  document.querySelectorAll('.teamcfg').forEach(row => {
+    const team = row.dataset.team;
+    row.querySelector('input[type=file]').onchange = async e => {
+      const f = e.target.files[0]; if (!f) return;
+      const fd = new FormData();
+      fd.append('action', 'logo'); fd.append('token', token); fd.append('team', team); fd.append('file', f);
+      try { await RV.upload(fd); RV.toast('Logo postavljen'); } catch (err) { RV.toast(err.message, true); }
+      e.target.value = '';
+    };
+    row.querySelector('.rm').onclick = async () => {
+      const fd = new FormData();
+      fd.append('action', 'logo'); fd.append('token', token); fd.append('team', team); fd.append('clear', '1');
+      try { await RV.upload(fd); } catch (err) { RV.toast(err.message, true); }
+    };
+  });
+
+  document.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => copy($('#' + b.dataset.copy).textContent));
+  $('#bCopySum').onclick = () => copy($('#summary').value);
+  function copy(txt) {
+    (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject())
+      .then(() => RV.toast('Kopirano'))
+      .catch(() => { const t = document.createElement('textarea'); t.value = txt; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); RV.toast('Kopirano'); });
+  }
+
+  function setVal(el, v) { if (document.activeElement !== el) el.value = v; }
+
+  function renderPool(v) {
+    if (!poolDirty) poolSel = [...v.s.pool];
+    $('#pool').innerHTML = Object.entries(v.catalog).map(([id, name]) =>
+      `<button class="${poolSel.includes(id) ? 'on' : ''}" data-id="${id}">${RV.esc(name)}<i>${poolSel.includes(id) ? 'U POOLU' : 'VAN'}</i></button>`).join('');
+    $('#poolCount').textContent = `${poolSel.length}/7`;
+    $('#poolCount').style.color = poolSel.length === 7 ? '' : 'var(--ban)';
+    $('#pool').querySelectorAll('button').forEach(b => b.onclick = () => {
+      poolDirty = true;
+      const id = b.dataset.id;
+      poolSel = poolSel.includes(id) ? poolSel.filter(x => x !== id) : [...poolSel, id];
+      renderPool(v);
+    });
+  }
+
+  function render(v) {
+    $('#kick').textContent = v.s.title;
+    setVal($('#title'), v.s.title);
+    document.querySelectorAll('#format button').forEach(b => b.classList.toggle('on', b.dataset.f === v.s.format));
+    $('#sidePick').classList.toggle('on', v.s.sidePick);
+    $('#deciderSide').disabled = !v.s.sidePick;
+    setVal($('#deciderSide'), v.s.deciderSide);
+
+    document.querySelectorAll('.teamcfg').forEach(row => {
+      const t = row.dataset.team, team = v.s.teams[t];
+      setVal(row.querySelector('.in'), team.name);
+      const box = row.querySelector('.logo-box');
+      const input = box.querySelector('input');
+      box.innerHTML = team.logo ? `<img src="${RV.esc(team.logo)}" alt="">` : `<span class="initial">UPLOAD<br>LOGO</span>`;
+      box.appendChild(input);
+      row.querySelector('.rm').style.display = team.logo ? '' : 'none';
+    });
+    renderPool(v);
+
+    const base = location.href.replace(/\/admin(\.html)?(\?.*)?$/, '/');
+    $('#lTablet').textContent = base + 'tablet' + (tabletKey ? '?k=' + encodeURIComponent(tabletKey) : '');
+    $('#navTablet').href = $('#lTablet').textContent;
+    $('#lOverlay').textContent = base + 'overlay';
+
+    UI.teams($('#teams'), v);
+    UI.banner($('#banner'), v);
+    const isSide = v.current && v.current.type === 'side';
+    $('#sideWrap').style.display = isSide ? 'block' : 'none';
+    if (isSide) UI.sidePicker($('#side'), v, side => act({ action: 'choose', step: v.idx, side }));
+    UI.maps($('#maps'), v, true, async id => {
+      if (await UI.confirmMap(v, id, v.current.type)) act({ action: 'choose', step: v.idx, map: id });
+    });
+    $('#summary').value = RV.summaryText(v);
+    $('#bUndo').disabled = !v.s.actions.length;
+  }
+
+  document.getElementById('yr').textContent = new Date().getFullYear();
+  if (token) login(token).catch(() => { $('#login').style.display = 'grid'; });
+  else $('#login').style.display = 'grid';
+</script>
+</body>
+</html>

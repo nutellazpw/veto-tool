@@ -1,0 +1,4 @@
+config.local.php
+data/state.json
+uploads/team_*
+_router.php

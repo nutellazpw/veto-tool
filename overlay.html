@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Veto Overlay · Relog Media</title>
+<link rel="stylesheet" href="assets/app.css">
+<style>
+  /* Transparentno 1920x1080 za vMix / OBS browser input — relog.gg stil */
+  html, body { background: transparent !important; overflow: hidden; display: block; min-height: 0; }
+  body { width: 1920px; height: 1080px; position: relative; }
+  body.preview { background: #3a3a3a !important; }
+  .wrap { position: absolute; left: 100px; right: 100px; bottom: 60px; opacity: 0; transition: opacity .6s; }
+  body.top .wrap { bottom: auto; top: 60px; }
+  .wrap.show { opacity: 1; }
+
+  .head { display: flex; align-items: stretch; gap: 8px; margin-bottom: 8px; }
+  .head .logo { background: #000; padding: 0 22px; display: grid; place-items: center; border-radius: 0 12px 0 12px; }
+  .head .logo img { height: 34px; }
+  .head .title { background: var(--orangeColor); color: #fff; font-weight: var(--fw-semibold); font-size: 26px; text-transform: uppercase; padding: 0 26px; display: flex; align-items: center; border-radius: 0 12px 0 12px; }
+  .head .step { flex: 1; background: #000; border: 1px solid var(--line); display: flex; align-items: center; gap: 12px; padding: 10px 24px; font-size: 24px; font-weight: var(--fw-semibold); text-transform: uppercase; border-radius: 0 12px 0 12px; }
+  .head .step .cat { color: var(--orangeColor); }
+  .head .step .cat.ban { color: var(--bad); }
+  .head .step .tn { color: var(--orangeColor); }
+  .head .step .mp { color: var(--grey-3); margin-left: 14px; }
+  .head .step .mp b { color: #fff; font-weight: var(--fw-semibold); }
+
+  .strip { display: grid; grid-template-columns: 220px repeat(7, 1fr) 220px; gap: 8px; }
+  .tm { background: #000; border: 1px solid var(--line); border-radius: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 12px; transition: border-color .3s, box-shadow .3s; }
+  .tm.active { border-color: var(--orangeColor); box-shadow: inset 0 0 0 1px var(--orangeColor); }
+  .tm .lbl { color: var(--orangeColor); font-weight: var(--fw-semibold); font-size: 14px; text-transform: uppercase; }
+  .tm .lg { width: 74px; height: 74px; display: grid; place-items: center; }
+  .tm .lg img { width: 100%; height: 100%; object-fit: contain; }
+  .tm .lg .initial { width: 100%; height: 100%; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 0 10px 0 10px; font-size: 38px; font-weight: var(--fw-semibold); color: var(--grey-3); }
+  .tm .nm { font-size: 26px; line-height: 28px; font-weight: var(--fw-semibold); text-transform: uppercase; text-align: center; overflow-wrap: anywhere; }
+
+  .mc { background: #000; border: 1px solid var(--line); border-radius: 15px; overflow: hidden; display: flex; flex-direction: column; transition: border-color .4s; }
+  .mc .img { position: relative; height: 84px; background: #0b0b0b; }
+  .mc .img .bg { position: absolute; inset: 0; background-size: cover; background-position: center; transition: filter .4s; }
+  .mc .ord { position: absolute; top: 8px; right: 8px; font-size: 13px; font-weight: var(--fw-bold); padding: 1px 8px; background: #000; border: 1px solid var(--line); border-radius: 0 7px 0 7px; }
+  .mc .body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; }
+  .mc .nm { font-size: 24px; line-height: 26px; font-weight: var(--fw-semibold); text-transform: uppercase; }
+  .mc .st { display: flex; gap: 6px; align-items: center; min-height: 25px; overflow: hidden; }
+  .mc .st .tag { font-size: 12px; padding: 5px 8px; }
+  .mc .st .who { font-size: 13px; color: var(--grey-3); font-weight: var(--fw-semibold); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mc .sd { font-size: 12px; padding: 3px 7px; }
+  .mc.banned { border-color: var(--line-soft); }
+  .mc.banned .bg { filter: grayscale(1) brightness(.35); }
+  .mc.banned .nm { color: var(--grey); text-decoration: line-through; text-decoration-color: var(--bad); text-decoration-thickness: 3px; }
+  .mc.picked { border-color: var(--orangeColor); }
+  .mc.decider { border-color: #fff; }
+  .mc.flash { animation: flash 1s ease-out; }
+  @keyframes flash { 0% { box-shadow: 0 0 0 4px var(--orangeColor); } 100% { box-shadow: 0 0 0 0 transparent; } }
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap">
+  <div class="head">
+    <div class="logo"><img src="assets/relog-logo.png" alt=""></div>
+    <div class="title" id="title">Map Veto</div>
+    <div class="step" id="step"></div>
+  </div>
+  <div class="strip" id="strip"></div>
+</div>
+
+<script src="assets/app.js"></script>
+<script>
+  const q = new URLSearchParams(location.search);
+  if (q.has('preview')) document.body.classList.add('preview');
+  if (q.get('pos') === 'top') document.body.classList.add('top');
+  let lastCount = -1;
+
+  function teamBox(v, t) {
+    const active = v.current && v.current.team === t;
+    return `<div class="tm ${active ? 'active' : ''}"><div class="lbl">Team ${t.toUpperCase()}</div><div class="lg">${RV.teamLogoHTML(v, t)}</div><div class="nm">${RV.esc(v.s.teams[t].name)}</div></div>`;
+  }
+
+  function render(v) {
+    document.getElementById('title').textContent = `${v.s.format.toUpperCase()} · Map veto`;
+    const c = v.current;
+    let step = '';
+    if (!c) step = '<span class="cat">Veto complete</span>' + v.played.map((p, i) => `<span class="mp">Map ${i + 1} <b>${RV.esc(RV.mapName(v, p.map))}</b></span>`).join('');
+    else {
+      const tn = `<span class="tn">${RV.esc(RV.teamName(v, c.team))}</span>`;
+      step = {
+        ban: `<span class="cat ban">Ban</span>${tn} is banning`,
+        pick: `<span class="cat">Pick</span>${tn} is picking`,
+        side: `<span class="cat">Side</span>${tn} chooses side on ${RV.esc(RV.mapName(v, v.sideMap))}`,
+      }[c.type] || '';
+    }
+    document.getElementById('step').innerHTML = step;
+
+    const lastMap = v.s.actions.length > lastCount && lastCount >= 0 ? (v.s.actions[v.s.actions.length - 1] || {}).map : null;
+    const cards = v.s.pool.map(id => {
+      const st = v.status[id] || { state: 'available' };
+      const bg = RV.mapBg(v, id);
+      let label = '';
+      if (st.state === 'banned') label = `<span class="tag ban">Ban</span><span class="who">${RV.esc(RV.teamName(v, st.team))}</span>`;
+      if (st.state === 'picked') label = `<span class="tag pick">Pick</span><span class="who">${RV.esc(RV.teamName(v, st.team))}</span>`;
+      if (st.state === 'decider') label = `<span class="tag decider">Decider</span>`;
+      return `<div class="mc ${st.state} ${id === lastMap ? 'flash' : ''}">
+        <div class="img"><div class="${bg.cls}" style="${bg.style}" ${bg.attr}></div>${st.order ? `<span class="ord">#${st.order}</span>` : ''}</div>
+        <div class="body"><div class="nm">${RV.esc(RV.mapName(v, id))}</div><div class="st">${label}</div>${st.side ? `<div class="st"><span class="tag side sd ${st.side}">${RV.esc(RV.teamName(v, st.sideTeam))} starts ${RV.sideLabel(st.side)}</span></div>` : ''}</div>
+      </div>`;
+    }).join('');
+    document.getElementById('strip').innerHTML = teamBox(v, 'a') + cards + teamBox(v, 'b');
+    lastCount = v.s.actions.length;
+    document.getElementById('wrap').classList.add('show');
+  }
+  RV.poll(render, 600);
+</script>
+</body>
+</html>

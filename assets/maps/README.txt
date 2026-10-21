@@ -1,0 +1,1 @@
+Ovde ubaci slike mapa: ancient.jpg, anubis.jpg, cache.jpg, dust2.jpg, inferno.jpg, mirage.jpg, nuke.jpg, overpass.jpg, train.jpg, vertigo.jpg (ili .png/.webp). Ako slike nema, prikazuje se brendirana pozadina.

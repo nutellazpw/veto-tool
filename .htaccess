@@ -1,0 +1,19 @@
+Options -Indexes
+DirectoryIndex tablet.html
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule ^tablet/?$ tablet.html [L]
+  RewriteRule ^admin/?$ admin.html [L]
+  RewriteRule ^overlay/?$ overlay.html [L]
+</IfModule>
+
+<FilesMatch "^(config|config\.local|config\.local\.example|lib)\.php$">
+  Require all denied
+</FilesMatch>
+
+<IfModule mod_headers.c>
+  <FilesMatch "\.(html|js|css)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>

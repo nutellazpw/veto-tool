@@ -1,0 +1,8 @@
+# Logoi su samo slike — nikakav PHP ovde ne sme da se izvrši
+<FilesMatch "\.(php|phtml|phar|php\d|pht|shtml|cgi|pl|py)$">
+  Require all denied
+</FilesMatch>
+<IfModule mod_mime.c>
+  RemoveHandler .php .phtml .php5 .php7 .php8 .phar
+  RemoveType .php .phtml .php5 .php7 .php8 .phar
+</IfModule>

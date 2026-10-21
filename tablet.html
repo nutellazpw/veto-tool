@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="robots" content="noindex">
+<title>Live Veto · Relog Media</title>
+<link rel="icon" href="assets/favicon.png">
+<link rel="stylesheet" href="assets/app.css">
+<style>
+  body { user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+  #app { display: flex; flex-direction: column; gap: 20px; }
+  #sideWrap, #resWrap { display: none; }
+  #resWrap .section-title { margin-top: 14px; }
+  .locked { min-height: 50vh; display: grid; place-items: center; text-align: center; }
+</style>
+</head>
+<body>
+<div class="conn">Offline · reconnecting</div>
+
+<header class="site-header">
+  <div class="container header-in">
+    <a class="header-logo" href="https://relog.gg" target="_blank" rel="noopener"><img src="assets/relog-logo.png" alt="Relog Media"></a>
+    <nav class="header-nav">
+      <span class="plain-badge" id="fmt">BO3</span>
+      <span class="live-badge"><img src="assets/live-icon.png" alt="">Live veto</span>
+    </nav>
+  </div>
+</header>
+
+<main class="site-holder">
+  <div class="container">
+    <div class="page-head">
+      <div>
+        <div class="kicker" id="title">Relog Media</div>
+        <h1 class="page-title">Map veto</h1>
+      </div>
+    </div>
+
+    <div id="app">
+      <section class="teams" id="teams"></section>
+      <section class="tour-block" id="banner"></section>
+      <section id="sideWrap"><div class="sidepick" id="side"></div></section>
+      <section class="maps" id="maps"></section>
+      <section id="resWrap">
+        <h2 class="section-title">Maps to be played</h2>
+        <div class="played" id="results"></div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="container footer-content-items">
+    <img class="footer-logo" src="assets/relog-logo-footer-white.png" alt="Relog Media">
+    <div class="footer-rights">© <span id="yr"></span> <b>Relog Media</b> All Rights Reserved</div>
+  </div>
+</footer>
+
+<script src="assets/app.js"></script>
+<script src="assets/ui.js"></script>
+<script>
+  document.getElementById('yr').textContent = new Date().getFullYear();
+  const key = new URLSearchParams(location.search).get('k') || '';
+  let busy = false;
+
+  async function choose(body) {
+    if (busy) return;
+    busy = true;
+    try { await RV.post({ action: 'choose', key, step: RV.view().idx, ...body }); }
+    catch (e) { RV.toast(e.message, true); }
+    finally { busy = false; }
+  }
+
+  function render(v) {
+    document.getElementById('title').textContent = v.s.title;
+    document.getElementById('fmt').textContent = v.s.format.toUpperCase();
+    document.title = `Live Veto · ${v.s.teams.a.name} vs ${v.s.teams.b.name}`;
+    UI.teams(document.getElementById('teams'), v);
+    UI.banner(document.getElementById('banner'), v);
+
+    const isSide = v.current && v.current.type === 'side';
+    document.getElementById('sideWrap').style.display = isSide ? 'block' : 'none';
+    if (isSide) UI.sidePicker(document.getElementById('side'), v, side => choose({ side }));
+
+    UI.maps(document.getElementById('maps'), v, true, async id => {
+      if (await UI.confirmMap(v, id, v.current.type)) choose({ map: id });
+    });
+
+    document.getElementById('resWrap').style.display = v.played.length ? 'block' : 'none';
+    UI.results(document.getElementById('results'), v);
+  }
+
+  function locked(msg) {
+    document.getElementById('app').innerHTML = `<div class="locked tour-block"><div><div class="step-cat ban">Tablet locked</div><div class="step-title">No access</div><div class="step-sub">${msg}</div></div></div>`;
+  }
+  fetch('api.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'key', key }) })
+    .then(r => r.json())
+    .then(j => j.ok ? RV.poll(render, 700) : locked('Open the tablet link from the admin panel.'))
+    .catch(() => locked('Server not reachable.'));
+
+  if ('wakeLock' in navigator) {
+    const lock = () => navigator.wakeLock.request('screen').catch(() => {});
+    lock(); document.addEventListener('visibilitychange', () => !document.hidden && lock());
+  }
+</script>
+</body>
+</html>
