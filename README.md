@@ -23,8 +23,8 @@ Jednom, ručno na serveru (cPanel File Manager):
 `.htaccess` već radi lepe URL-ove, blokira `config.php`/`lib.php`, zabranjuje pristup `data/` i izvršavanje PHP-a u `uploads/`.
 
 ## Logo i slike mapa
-- RLG logo, favicon i Anek Latin font su u `assets/` (self-hosted, radi i na LAN-u bez interneta).
-- `assets/maps/<id>.jpg` — slike mapa: `ancient, anubis, cache, dust2, inferno, mirage, nuke, overpass, train, vertigo` (.jpg/.png/.webp). Bez slike se prikazuje brendirana pozadina.
+- Slike mapa, RLG logo, relog favicon i Anek Latin font su u `assets/` (self-hosted, radi i na LAN-u bez interneta).
+- Slike mapa su u `assets/maps/<id>.jpg` — za zamenu ubaci fajl istog imena: `ancient, anubis, cache, dust2, inferno, mirage, nuke, overpass, train, vertigo` (.jpg/.png/.webp). Bez slike se prikazuje brendirana pozadina.
 
 ## Pravila veta
 Team A uvek počinje (za promenu: „Zameni timove").

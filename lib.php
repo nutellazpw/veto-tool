@@ -14,7 +14,7 @@ const MAP_CATALOG = [
     'vertigo'  => 'Vertigo',
 ];
 
-const DEFAULT_POOL = ['ancient', 'anubis', 'dust2', 'inferno', 'mirage', 'nuke', 'overpass'];
+const DEFAULT_POOL = ['ancient', 'anubis', 'cache', 'dust2', 'inferno', 'mirage', 'nuke'];
 
 function default_state(): array {
     return [
