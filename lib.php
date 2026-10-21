@@ -237,43 +237,41 @@ function valid_webhook(string $url): bool {
 
 function side_name(string $x): string { return $x === 'ct' ? 'CT' : 'T'; }
 
-/** Build the Discord message for a finished veto. */
-function discord_message(array $s): array {
-    $A = $s['teams']['a']['name'];
-    $B = $s['teams']['b']['name'];
+/** Map names as written in the Discord result (Dust2, not Dust II). */
+const DISCORD_MAP_NAMES = ['dust2' => 'Dust2'];
+
+/**
+ * Build the Discord message for a finished veto, e.g.
+ *   1. YNG Sharks banned Dust2
+ *   3. YNG Sharks picked Cache (paiN Gaming CT)
+ *   7. System picked Inferno
+ */
+function discord_lines(array $s): array {
     $tn = fn($t) => $t ? $s['teams'][$t]['name'] : '';
-    $mn = fn($m) => MAP_CATALOG[$m] ?? $m;
+    $mn = fn($m) => DISCORD_MAP_NAMES[$m] ?? (MAP_CATALOG[$m] ?? $m);
 
-    $vetoLines = [];
-    $played = [];
-    $n = 0;
+    $lines = [];    // one entry per ban / pick / decider
+    $index = [];    // map id → position in $lines, to attach the side choice
     foreach ($s['actions'] as $a) {
-        if ($a['type'] === 'ban') $vetoLines[] = sprintf('`%d.` ❌ **%s** banned %s', ++$n, $tn($a['team']), $mn($a['map']));
-        elseif ($a['type'] === 'pick') { $vetoLines[] = sprintf('`%d.` ✅ **%s** picked %s', ++$n, $tn($a['team']), $mn($a['map'])); $played[$a['map']] = ['how' => $tn($a['team']) . ' pick']; }
-        elseif ($a['type'] === 'decider') { $vetoLines[] = sprintf('`%d.` ⚪ %s left over (decider)', ++$n, $mn($a['map'])); $played[$a['map']] = ['how' => 'Decider']; }
-        elseif ($a['type'] === 'side') { $vetoLines[] = sprintf('　↳ **%s** chose %s on %s', $tn($a['team']), side_name($a['side']), $mn($a['map'])); $played[$a['map']]['side'] = $tn($a['team']) . ' starts ' . side_name($a['side']); }
+        if ($a['type'] === 'ban' || $a['type'] === 'pick') {
+            $index[$a['map']] = count($lines);
+            $lines[] = ['text' => sprintf('%s %s %s', $tn($a['team']), $a['type'] === 'ban' ? 'banned' : 'picked', $mn($a['map'])), 'side' => ''];
+        } elseif ($a['type'] === 'decider') {
+            $index[$a['map']] = count($lines);
+            $lines[] = ['text' => 'System picked ' . $mn($a['map']), 'side' => ''];
+        } elseif ($a['type'] === 'side' && isset($index[$a['map']])) {
+            $lines[$index[$a['map']]]['side'] = sprintf(' (%s %s)', $tn($a['team']), side_name($a['side']));
+        }
     }
+    $out = [];
+    foreach ($lines as $i => $l) $out[] = ($i + 1) . '. ' . $l['text'] . $l['side'];
+    return $out;
+}
 
-    $mapLines = [];
-    $i = 0;
-    foreach ($played as $map => $p) {
-        $side = $p['side'] ?? ($p['how'] === 'Decider' && $s['deciderSide'] === 'knife' ? 'knife for side' : '');
-        $mapLines[] = sprintf('**Map %d — %s** · %s%s', ++$i, $mn($map), $p['how'], $side ? " · $side" : '');
-    }
-
+function discord_message(array $s): array {
     return [
         'username' => 'Relog Veto',
-        'embeds' => [[
-            'title'       => "$A vs $B — " . strtoupper($s['format']) . ' map veto',
-            'description' => $s['title'],
-            'color'       => 0xFF6700,
-            'fields'      => [
-                ['name' => 'Maps', 'value' => implode("\n", $mapLines) ?: '—'],
-                ['name' => 'Veto', 'value' => mb_substr(implode("\n", $vetoLines), 0, 1024) ?: '—'],
-            ],
-            'footer'      => ['text' => 'Relog Media · veto tool'],
-            'timestamp'   => gmdate('c'),
-        ]],
+        'content' => mb_substr(implode("\n", discord_lines($s)), 0, 2000),
         'allowed_mentions' => ['parse' => []],
     ];
 }
