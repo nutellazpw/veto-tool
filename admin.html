@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="sr">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="assets/app.css">
 <style>
   .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-  .layout { display: grid; grid-template-columns: 400px minmax(0,1fr); gap: 20px; align-items: start; }
+  .layout { display: grid; grid-template-columns: 400px minmax(0,1fr); gap: 20px; align-items: start; margin-top: 20px; }
   .col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
   .card { border: 1px solid var(--line); border-radius: var(--r); padding: 24px; }
   .card h3 { font-weight: var(--fw-semibold); font-size: 28px; line-height: 32px; text-transform: uppercase; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
@@ -17,14 +17,24 @@
   .hint { font-size: 15px; color: var(--grey-2); margin-top: 12px; line-height: 1.4; }
   .hint code { color: #fff; }
   label.f { display: block; font-size: 15px; font-weight: var(--fw-semibold); text-transform: uppercase; color: var(--orangeColor); margin: 18px 0 2px; }
-  label.f:first-of-type { margin-top: 0; }
+  label.f.first, label.f:first-child { margin-top: 0; }
   .in { width: 100%; background: transparent; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; color: #fff; padding: 7px 2px; font: inherit; font-size: 22px; outline: none; }
   .in:focus { border-bottom-color: var(--orangeColor); }
+  .in.sm { font-size: 16px; }
   .row { display: flex; gap: 12px; align-items: flex-end; }
-  .row .in { flex: 1; }
-  select.in { appearance: none; cursor: pointer; background-image: linear-gradient(45deg, transparent 50%, #fff 50%), linear-gradient(135deg, #fff 50%, transparent 50%); background-position: calc(100% - 14px) 55%, calc(100% - 9px) 55%; background-size: 5px 5px; background-repeat: no-repeat; }
+  .row .in { flex: 1; min-width: 0; }
+  select.in { appearance: none; cursor: pointer; padding-right: 26px; background-image: linear-gradient(45deg, transparent 50%, #fff 50%), linear-gradient(135deg, #fff 50%, transparent 50%); background-position: calc(100% - 14px) 55%, calc(100% - 9px) 55%; background-size: 5px 5px; background-repeat: no-repeat; }
   select.in option { background: #000; }
 
+  /* ---- match setup (top) */
+  .match-setup { border: 1px solid var(--line); border-radius: var(--r); padding: 24px; }
+  .match-grid { display: grid; grid-template-columns: 1fr 1fr auto; gap: 20px; align-items: end; }
+  .seed-hint { margin-top: 18px; display: flex; gap: 14px; align-items: center; border: 2px solid var(--orangeColor); border-radius: 0 10px 0 10px; padding: 12px 16px; font-size: 18px; }
+  .seed-hint .big { flex: none; font-weight: var(--fw-bold); font-size: 15px; text-transform: uppercase; color: #fff; background: var(--orangeColor); padding: 4px 10px; border-radius: 0 8px 0 8px; }
+  .seed-hint b { color: var(--orangeColor); font-weight: var(--fw-semibold); }
+  .seed-hint.muted-hint { border-color: var(--line); color: var(--grey-2); }
+
+  /* ---- segments, toggles, pool */
   .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 8px; }
   .seg button { padding: 10px 6px; border: 2px solid var(--line); border-radius: 0 10px 0 10px; text-align: center; transition: border-color .15s; }
   .seg button:hover { border-color: #f5650069; }
@@ -32,27 +42,49 @@
   .seg button small { display: block; font-size: 12px; color: var(--grey-2); letter-spacing: .12em; margin-top: 2px; }
   .seg button.on { border-color: var(--orangeColor); }
   .seg button.on b { color: var(--orangeColor); }
-
   .toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; font-size: 17px; }
   .sw { position: relative; width: 50px; height: 26px; border: 2px solid var(--line); border-radius: 0 10px 0 10px; flex: 0 0 auto; transition: .15s; }
   .sw::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; background: var(--grey); border-radius: 0 5px 0 5px; transition: .15s; }
   .sw.on { border-color: var(--orangeColor); }
   .sw.on::after { left: 27px; background: var(--orangeColor); }
-
   .pool { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .pool button { display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; border: 2px solid var(--line); border-radius: 0 10px 0 10px; font-weight: var(--fw-semibold); text-transform: uppercase; font-size: 17px; transition: border-color .15s; }
   .pool button i { font-style: normal; font-size: 12px; color: var(--grey); }
   .pool button.on { border-color: var(--orangeColor); }
   .pool button.on i { color: var(--orangeColor); }
 
-  .teamcfg { display: grid; grid-template-columns: 76px 1fr; gap: 16px; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--grey); }
-  .teamcfg:first-of-type { padding-top: 0; }
-  .teamcfg .logo-box { width: 76px; height: 76px; border: 1px dashed var(--line); border-radius: 0 10px 0 10px; display: grid; place-items: center; overflow: hidden; cursor: pointer; transition: border-color .15s; }
-  .teamcfg .logo-box:hover { border-color: var(--orangeColor); }
-  .teamcfg .logo-box img { width: 100%; height: 100%; object-fit: contain; padding: 6px; }
-  .teamcfg .logo-box .initial { font-size: 12px; color: var(--grey-3); font-weight: var(--fw-semibold); text-align: center; text-transform: uppercase; line-height: 1.2; }
-  .teamcfg .rm { color: var(--grey-3); text-transform: uppercase; font-size: 13px; font-weight: var(--fw-semibold); margin-top: 6px; }
-  .teamcfg .rm:hover { color: var(--bad); }
+  /* ---- team database */
+  .db-list { display: flex; flex-direction: column; }
+  .db-row { display: grid; grid-template-columns: 40px 44px 1fr auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
+  .db-row:last-child { border-bottom: 0; }
+  .db-row.editing { background: #0d0d0d; }
+  .seed { display: inline-grid; place-items: center; min-width: 34px; height: 28px; font-weight: var(--fw-bold); color: var(--grey-3); border: 1px solid var(--line); border-radius: 0 8px 0 8px; font-size: 14px; }
+  .seed.on { background: var(--orangeColor); border-color: var(--orangeColor); color: #fff; }
+  .db-logo { width: 44px; height: 44px; display: grid; place-items: center; }
+  .db-logo img { width: 100%; height: 100%; object-fit: contain; }
+  .db-logo .initial { width: 100%; height: 100%; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 0 8px 0 8px; color: var(--grey-3); font-weight: var(--fw-semibold); }
+  .db-name { font-weight: var(--fw-semibold); text-transform: uppercase; font-size: 19px; overflow-wrap: anywhere; }
+  .db-act { display: flex; gap: 2px; }
+  .lnk { color: var(--grey-3); text-transform: uppercase; font-size: 13px; font-weight: var(--fw-semibold); padding: 4px 6px; }
+  .lnk:hover { color: var(--orangeColor); }
+  .lnk.danger:hover { color: var(--bad); }
+  .db-empty { color: var(--grey-2); font-size: 16px; padding: 4px 0 6px; }
+  .db-form { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--grey); }
+  .db-form .form-title { font-weight: var(--fw-semibold); text-transform: uppercase; font-size: 20px; margin-bottom: 10px; }
+  .db-form .two { display: grid; grid-template-columns: 1fr 110px; gap: 14px; }
+  .logo-pick { display: flex; gap: 14px; align-items: center; margin-top: 16px; }
+  .logo-pick .prev { width: 60px; height: 60px; border: 1px dashed var(--line); border-radius: 0 10px 0 10px; display: grid; place-items: center; overflow: hidden; flex: none; }
+  .logo-pick .prev img { width: 100%; height: 100%; object-fit: contain; padding: 4px; }
+  .logo-pick .prev span { font-size: 11px; color: var(--grey); text-transform: uppercase; text-align: center; line-height: 1.1; }
+  .form-btns { display: flex; gap: 10px; margin-top: 18px; }
+  .form-btns .btn { flex: 1; padding-left: 12px; padding-right: 12px; }
+
+  /* ---- discord */
+  .wh-status { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 14px; font-size: 15px; }
+  .pill { text-transform: uppercase; font-weight: var(--fw-semibold); font-size: 13px; padding: 3px 9px; border: 2px solid var(--line); border-radius: 0 8px 0 8px; color: var(--grey-3); }
+  .pill.ok { border-color: var(--ok); color: #c6f7d8; }
+  .pill.bad { border-color: var(--bad); color: #ffc9c9; }
+  .pill.wait { border-color: var(--orangeColor); color: #fff; }
 
   .link-label { font-size: 15px; font-weight: var(--fw-semibold); text-transform: uppercase; color: var(--orangeColor); margin-top: 16px; }
   .link-label:first-of-type { margin-top: 0; }
@@ -74,31 +106,36 @@
   .login h2 { font-weight: var(--fw-semibold); font-size: 40px; line-height: 44px; text-transform: uppercase; }
 
   @media (max-width: 1150px) { .layout { grid-template-columns: 1fr; } }
-  @media (max-width: 760px) { .live-col .maps { grid-template-columns: repeat(2, 1fr); } .live-col .teams { grid-template-columns: 1fr; } }
+  @media (max-width: 760px) {
+    .match-grid { grid-template-columns: 1fr; }
+    .live-col .maps { grid-template-columns: repeat(2, 1fr); }
+    .live-col .teams { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
-<div class="conn">Offline · ponovno povezivanje</div>
+<div class="conn">Offline · reconnecting</div>
 
 <header class="site-header">
   <div class="container header-in">
     <a class="header-logo" href="https://relog.gg" target="_blank" rel="noopener"><img src="assets/relog-logo.png" alt="Relog Media"></a>
     <nav class="header-nav">
       <a class="header-item-link active" href="admin">Admin</a>
-      <a class="header-item-link" id="navTablet" href="tablet" target="_blank">Tablet</a>
+      <a class="header-item-link" href="tablet" target="_blank">Tablet</a>
       <a class="header-item-link" href="overlay?preview" target="_blank">Overlay</a>
     </nav>
   </div>
 </header>
 
 <main class="site-holder"><div class="container">
+
 <div id="login" class="login" style="display:none">
   <form class="card" id="loginForm">
     <div class="kicker">Veto admin</div>
-    <h2>Prijava</h2>
-    <label class="f" for="pw" style="margin-top:22px">Admin lozinka</label>
+    <h2>Log in</h2>
+    <label class="f" for="pw" style="margin-top:22px">Admin password</label>
     <input class="in" type="password" id="pw" autocomplete="current-password">
-    <button class="btn" style="width:100%;margin-top:26px">Uđi</button>
+    <button class="btn" style="width:100%;margin-top:26px">Log in</button>
   </form>
 </div>
 
@@ -110,18 +147,29 @@
     </div>
     <div class="actions">
       <button class="btn ghost sm" id="bUndo">↶ Undo</button>
-      <button class="btn ghost sm" id="bSwap">⇄ Zameni timove</button>
-      <button class="btn danger sm" id="bRestart">⟲ Restart veta</button>
-      <button class="btn ghost sm" id="bLogout">Odjava</button>
+      <button class="btn ghost sm" id="bSwap">⇄ Swap teams</button>
+      <button class="btn danger sm" id="bRestart">⟲ Restart veto</button>
+      <button class="btn ghost sm" id="bLogout">Log out</button>
     </div>
   </div>
+
+  <!-- MATCH SETUP: teams from the database -->
+  <section class="match-setup">
+    <h3 style="font-weight:600;font-size:28px;line-height:32px;text-transform:uppercase;margin-bottom:16px">Match setup</h3>
+    <div class="match-grid">
+      <div><label class="f first" for="selA">Team A · bans first</label><select class="in" id="selA"></select></div>
+      <div><label class="f first" for="selB">Team B</label><select class="in" id="selB"></select></div>
+      <button class="btn" id="bSetTeams">Set teams</button>
+    </div>
+    <div class="seed-hint" id="seedHint"></div>
+  </section>
 
   <div class="layout">
     <div class="col">
       <div class="card">
-        <h3>Meč</h3>
-        <label class="f" for="title">Naziv turnira (zaglavlje tableta)</label>
-        <div class="row"><input class="in" id="title" maxlength="60"><button class="btn sm" data-save>Sačuvaj</button></div>
+        <h3>Veto settings</h3>
+        <label class="f" for="title">Tournament name (tablet header)</label>
+        <div class="row"><input class="in" id="title" maxlength="60"><button class="btn sm" id="bTitle">Save</button></div>
 
         <label class="f">Format</label>
         <div class="seg" id="format">
@@ -130,42 +178,66 @@
           <button data-f="bo5"><b>BO5</b><small>B B P P P P D</small></button>
         </div>
 
-        <div class="toggle"><span>Biranje strane (CT/T) posle picka</span><button class="sw" id="sidePick" aria-label="Side pick"></button></div>
-        <label class="f" for="deciderSide">Stranu na decideru bira</label>
+        <div class="toggle"><span>Side choice (CT/T) after each pick</span><button class="sw" id="sidePick" aria-label="Side pick"></button></div>
+        <label class="f" for="deciderSide">Decider side chosen by</label>
         <select class="in" id="deciderSide">
-          <option value="knife">Knife runda</option>
+          <option value="knife">Knife round</option>
           <option value="a">Team A</option>
           <option value="b">Team B</option>
         </select>
-        <p class="hint">Team A uvek počinje veto. Za promenu ko počinje koristi „Zameni timove". Promena formata, strane ili map poola resetuje veto.</p>
-      </div>
-
-      <div class="card">
-        <h3>Timovi</h3>
-        <div class="teamcfg" data-team="a">
-          <label class="logo-box" title="Klikni za upload logoa"><input type="file" accept="image/*" hidden></label>
-          <div><label class="f" style="margin:0">Team A · počinje veto</label><input class="in" maxlength="32"><button class="rm" type="button">Ukloni logo</button></div>
-        </div>
-        <div class="teamcfg" data-team="b">
-          <label class="logo-box" title="Klikni za upload logoa"><input type="file" accept="image/*" hidden></label>
-          <div><label class="f" style="margin:0">Team B</label><input class="in" maxlength="32"><button class="rm" type="button">Ukloni logo</button></div>
-        </div>
-        <button class="btn" style="width:100%;margin-top:18px" data-save>Sačuvaj imena</button>
+        <p class="hint">Team A always starts the veto — use “Swap teams” to change who starts. Changing format, side rules or the map pool restarts the veto.</p>
       </div>
 
       <div class="card">
         <h3>Map pool <span class="count" id="poolCount">7/7</span></h3>
         <div class="pool" id="pool"></div>
-        <button class="btn" id="bPool" style="width:100%;margin-top:18px">Primeni pool</button>
-        <p class="hint">Tačno 7 mapa. Slike mapa idu u <code>assets/maps/</code> (npr. <code>mirage.jpg</code>).</p>
+        <button class="btn" id="bPool" style="width:100%;margin-top:18px">Apply pool</button>
+        <p class="hint">Exactly 7 maps.</p>
       </div>
 
       <div class="card">
-        <h3>Linkovi</h3>
-        <div class="link-label">Tablet za timove</div>
-        <div class="link"><code id="lTablet"></code><button class="btn sm" data-copy="lTablet">Kopiraj</button></div>
+        <h3>Team database <span class="count" id="dbCount">0</span></h3>
+        <div class="db-list" id="dbList"></div>
+        <form class="db-form" id="dbForm" autocomplete="off">
+          <div class="form-title" id="dbFormTitle">Add team</div>
+          <div class="two">
+            <div><label class="f first" for="tName">Team name</label><input class="in sm" id="tName" maxlength="32" required></div>
+            <div><label class="f first" for="tSeed">Seed</label><select class="in sm" id="tSeed"></select></div>
+          </div>
+          <div class="logo-pick">
+            <label class="prev" for="tLogo" id="tLogoPrev"><span>Upload<br>logo</span></label>
+            <div>
+              <input type="file" id="tLogo" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+              <label for="tLogo" class="lnk" style="cursor:pointer;padding-left:0">Choose logo</label>
+              <button type="button" class="lnk danger" id="tLogoClear" style="display:none">Remove logo</button>
+              <div class="hint" style="margin-top:2px">PNG/JPG/WEBP, max 5 MB</div>
+            </div>
+          </div>
+          <div class="form-btns">
+            <button type="button" class="btn ghost" id="tCancel" style="display:none">Cancel</button>
+            <button class="btn" id="tSave">Add team</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <h3>Discord</h3>
+        <label class="f first" for="webhook">Webhook URL</label>
+        <input class="in sm" id="webhook" placeholder="https://discord.com/api/webhooks/…" spellcheck="false">
+        <div class="form-btns">
+          <button class="btn ghost sm" id="bWhTest">Send test</button>
+          <button class="btn sm" id="bWhSave">Save</button>
+        </div>
+        <div class="wh-status" id="whStatus"></div>
+        <p class="hint">When the last step of a veto is played, the result is posted to this channel automatically (once per veto).</p>
+      </div>
+
+      <div class="card">
+        <h3>Links</h3>
+        <div class="link-label">Tablet for the teams</div>
+        <div class="link"><code id="lTablet"></code><button class="btn sm" data-copy="lTablet">Copy</button></div>
         <div class="link-label">Overlay (vMix / OBS browser input, 1920×1080)</div>
-        <div class="link"><code id="lOverlay"></code><button class="btn sm" data-copy="lOverlay">Kopiraj</button></div>
+        <div class="link"><code id="lOverlay"></code><button class="btn sm" data-copy="lOverlay">Copy</button></div>
       </div>
     </div>
 
@@ -173,15 +245,16 @@
       <section class="teams" id="teams"></section>
       <section class="tour-block" id="banner"></section>
       <section id="sideWrap"><div class="sidepick" id="side"></div></section>
-      <div class="note">Admin može da odigra korak umesto tableta — klik na mapu.</div>
+      <div class="note">The admin can play a step instead of the tablet — click a map.</div>
       <section class="maps" id="maps"></section>
       <div class="card">
-        <h3>Rezime veta <button class="btn sm" id="bCopySum">Kopiraj tekst</button></h3>
+        <h3>Veto summary <button class="btn sm" id="bCopySum">Copy text</button></h3>
         <textarea class="summary" id="summary" readonly></textarea>
       </div>
     </div>
   </div>
 </div>
+
 </div></main>
 
 <footer class="site-footer">
@@ -195,96 +268,95 @@
 <script src="assets/ui.js"></script>
 <script>
   const $ = s => document.querySelector(s);
+  const esc = RV.esc;
   let token = localStorage.getItem('rv_token') || '';
-  let tabletKey = '';
-  let poolSel = [];
-  let poolDirty = false;
-  let started = false;
+  let poolSel = [], poolDirty = false, started = false;
+  let editId = '', clearLogo = false;
+  let lastView = null;
 
+  // ------------------------------------------------------------ auth
   async function login(t) {
     const r = await fetch('api.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'auth', token: t }) });
     const j = await r.json();
-    if (!j.ok) throw new Error(j.error || 'Pogrešna lozinka');
-    token = t; tabletKey = j.tabletKey || '';
-    localStorage.setItem('rv_token', t);
+    if (!j.ok) throw new Error(j.error || 'Wrong password');
+    token = t; localStorage.setItem('rv_token', t); RV.setToken(t);
     $('#login').style.display = 'none'; $('#app').style.display = 'block';
     if (!started) { started = true; RV.poll(render, 700); }
   }
-
-  $('#loginForm').addEventListener('submit', e => {
-    e.preventDefault();
-    login($('#pw').value).catch(err => RV.toast(err.message, true));
-  });
+  $('#loginForm').addEventListener('submit', e => { e.preventDefault(); login($('#pw').value).catch(err => RV.toast(err.message, true)); });
   $('#bLogout').onclick = () => { localStorage.removeItem('rv_token'); location.reload(); };
 
-  const act = (body, okMsg) => RV.post({ token, ...body }).then(() => okMsg && RV.toast(okMsg)).catch(e => RV.toast(e.message, true));
-  const hasProgress = () => RV.payload && RV.payload.state.actions.length > 0;
-  const confirmReset = () => !hasProgress() || confirm('Ovo resetuje veto koji je u toku. Nastavi?');
+  const act = (body, okMsg) => RV.post({ token, ...body }).then(j => { okMsg && RV.toast(okMsg); return j; }).catch(e => { RV.toast(e.message, true); throw e; });
+  const quiet = p => p.catch(() => {});
+  const hasProgress = () => lastView && lastView.s.actions.length > 0;
+  const confirmReset = () => !hasProgress() || confirm('This restarts the veto in progress. Continue?');
 
-  $('#bUndo').onclick = () => act({ action: 'undo' }, 'Poslednji korak poništen');
-  $('#bRestart').onclick = () => confirm('Restartovati veto? Timovi i podešavanja ostaju.') && act({ action: 'restart' }, 'Veto restartovan');
-  $('#bSwap').onclick = () => confirmReset() && act({ action: 'swap' }, 'Timovi zamenjeni');
+  // ------------------------------------------------------------ top actions
+  $('#bUndo').onclick = () => quiet(act({ action: 'undo' }, 'Last step undone'));
+  $('#bRestart').onclick = () => confirm('Restart the veto? Teams and settings stay.') && quiet(act({ action: 'restart' }, 'Veto restarted'));
+  $('#bSwap').onclick = () => confirmReset() && quiet(act({ action: 'swap' }, 'Teams swapped'));
 
-  function saveNames() {
-    act({
-      action: 'config',
-      title: $('#title').value,
-      teams: { a: { name: document.querySelector('[data-team=a] .in').value }, b: { name: document.querySelector('[data-team=b] .in').value } },
-    }, 'Sačuvano');
+  // ------------------------------------------------------------ match setup
+  $('#bSetTeams').onclick = () => {
+    const a = $('#selA').value, b = $('#selB').value;
+    if (!a || !b) return RV.toast('Choose both teams', true);
+    if (a === b) return RV.toast('Team A and Team B must be different', true);
+    confirmReset() && quiet(act({ action: 'match_teams', a, b }, 'Teams set'));
+  };
+  ['#selA', '#selB'].forEach(id => $(id).addEventListener('change', () => renderSeedHint(lastView)));
+
+  function teamById(v, id) { return v.db.find(t => t.id === id); }
+  function seedTxt(t) { return t && t.seed ? `#${t.seed}` : 'no seed'; }
+
+  function renderSeedHint(v) {
+    const el = $('#seedHint');
+    if (!v) return;
+    if (!v.db.length) { el.className = 'seed-hint muted-hint'; el.innerHTML = 'Add teams in the Team database below, then pick them here.'; return; }
+    const a = teamById(v, $('#selA').value), b = teamById(v, $('#selB').value);
+    if (!a || !b || a.id === b.id) { el.className = 'seed-hint muted-hint'; el.innerHTML = 'Choose two teams to see who is the higher seed.'; return; }
+    if (!a.seed || !b.seed) { el.className = 'seed-hint muted-hint'; el.innerHTML = 'At least one of these teams has no seed — set seeds in the Team database.'; return; }
+    const hi = a.seed < b.seed ? a : b, lo = hi === a ? b : a;
+    el.className = 'seed-hint';
+    el.innerHTML = `<span class="big">Higher seed</span><span><b>${esc(hi.name)}</b> (seed #${hi.seed}) vs ${esc(lo.name)} (seed #${lo.seed}) — ask <b>${esc(hi.name)}</b> whether they want to be Team A (bans first) or Team B.</span>`;
   }
-  document.querySelectorAll('[data-save]').forEach(b => b.onclick = saveNames);
-  document.querySelectorAll('#title, .teamcfg .in').forEach(i => i.addEventListener('keydown', e => e.key === 'Enter' && saveNames()));
 
+  function renderSelects(v) {
+    const opts = sel => `<option value="">— choose team —</option>` + v.db.map(t => `<option value="${t.id}" ${t.id === sel ? 'selected' : ''}>${t.seed ? `#${t.seed} · ` : ''}${esc(t.name)}</option>`).join('');
+    ['a', 'b'].forEach(side => {
+      const el = $(side === 'a' ? '#selA' : '#selB');
+      if (document.activeElement === el) return;
+      const keep = el.dataset.touched ? el.value : v.s.teams[side].id;
+      el.innerHTML = opts(keep);
+    });
+    renderSeedHint(v);
+  }
+  ['#selA', '#selB'].forEach(id => $(id).addEventListener('change', e => e.target.dataset.touched = '1'));
+
+  // ------------------------------------------------------------ veto settings
+  $('#bTitle').onclick = () => quiet(act({ action: 'config', title: $('#title').value }, 'Saved'));
+  $('#title').addEventListener('keydown', e => e.key === 'Enter' && $('#bTitle').click());
   document.querySelectorAll('#format button').forEach(b => b.onclick = () => {
-    if (RV.payload.state.format === b.dataset.f) return;
-    confirmReset() && act({ action: 'config', format: b.dataset.f }, `Format: ${b.dataset.f.toUpperCase()}`);
+    if (lastView.s.format === b.dataset.f) return;
+    confirmReset() && quiet(act({ action: 'config', format: b.dataset.f }, `Format: ${b.dataset.f.toUpperCase()}`));
   });
-  $('#sidePick').onclick = () => confirmReset() && act({ action: 'config', sidePick: !RV.payload.state.sidePick });
+  $('#sidePick').onclick = () => confirmReset() && quiet(act({ action: 'config', sidePick: !lastView.s.sidePick }));
   $('#deciderSide').onchange = e => {
-    if (confirmReset()) act({ action: 'config', deciderSide: e.target.value });
-    else e.target.value = RV.payload.state.deciderSide;
+    if (confirmReset()) quiet(act({ action: 'config', deciderSide: e.target.value }));
+    else e.target.value = lastView.s.deciderSide;
   };
-
   $('#bPool').onclick = () => {
-    if (poolSel.length !== 7) return RV.toast('Izaberi tačno 7 mapa', true);
+    if (poolSel.length !== 7) return RV.toast('Pick exactly 7 maps', true);
     if (!confirmReset()) return;
-    // keep catalog order for a tidy grid
-    const ordered = Object.keys(RV.payload.catalog).filter(id => poolSel.includes(id));
-    act({ action: 'config', pool: ordered }, 'Map pool primenjen').then(() => poolDirty = false);
+    const ordered = Object.keys(lastView.catalog).filter(id => poolSel.includes(id));
+    act({ action: 'config', pool: ordered }, 'Map pool applied').then(() => poolDirty = false).catch(() => {});
   };
-
-  document.querySelectorAll('.teamcfg').forEach(row => {
-    const team = row.dataset.team;
-    row.querySelector('input[type=file]').onchange = async e => {
-      const f = e.target.files[0]; if (!f) return;
-      const fd = new FormData();
-      fd.append('action', 'logo'); fd.append('token', token); fd.append('team', team); fd.append('file', f);
-      try { await RV.upload(fd); RV.toast('Logo postavljen'); } catch (err) { RV.toast(err.message, true); }
-      e.target.value = '';
-    };
-    row.querySelector('.rm').onclick = async () => {
-      const fd = new FormData();
-      fd.append('action', 'logo'); fd.append('token', token); fd.append('team', team); fd.append('clear', '1');
-      try { await RV.upload(fd); } catch (err) { RV.toast(err.message, true); }
-    };
-  });
-
-  document.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => copy($('#' + b.dataset.copy).textContent));
-  $('#bCopySum').onclick = () => copy($('#summary').value);
-  function copy(txt) {
-    (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject())
-      .then(() => RV.toast('Kopirano'))
-      .catch(() => { const t = document.createElement('textarea'); t.value = txt; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); RV.toast('Kopirano'); });
-  }
-
-  function setVal(el, v) { if (document.activeElement !== el) el.value = v; }
 
   function renderPool(v) {
     if (!poolDirty) poolSel = [...v.s.pool];
     $('#pool').innerHTML = Object.entries(v.catalog).map(([id, name]) =>
-      `<button class="${poolSel.includes(id) ? 'on' : ''}" data-id="${id}">${RV.esc(name)}<i>${poolSel.includes(id) ? 'U POOLU' : 'VAN'}</i></button>`).join('');
+      `<button class="${poolSel.includes(id) ? 'on' : ''}" data-id="${id}">${esc(name)}<i>${poolSel.includes(id) ? 'In pool' : 'Out'}</i></button>`).join('');
     $('#poolCount').textContent = `${poolSel.length}/7`;
-    $('#poolCount').style.color = poolSel.length === 7 ? '' : 'var(--ban)';
+    $('#poolCount').style.color = poolSel.length === 7 ? '' : 'var(--bad)';
     $('#pool').querySelectorAll('button').forEach(b => b.onclick = () => {
       poolDirty = true;
       const id = b.dataset.id;
@@ -293,7 +365,124 @@
     });
   }
 
+  // ------------------------------------------------------------ team database
+  function renderSeedOptions(v) {
+    const sel = $('#tSeed');
+    if (document.activeElement === sel) return;
+    const cur = sel.value;
+    const taken = {};
+    v.db.forEach(t => { if (t.seed && t.id !== editId) taken[t.seed] = t.name; });
+    let html = '<option value="">—</option>';
+    for (let i = 1; i <= 8; i++) html += `<option value="${i}" ${taken[i] ? 'disabled' : ''}>#${i}${taken[i] ? ' · ' + esc(taken[i]) : ''}</option>`;
+    sel.innerHTML = html;
+    sel.value = cur && !taken[cur] ? cur : '';
+  }
+
+  function renderDb(v) {
+    $('#dbCount').textContent = v.db.length;
+    $('#dbList').innerHTML = v.db.length ? v.db.map(t => `
+      <div class="db-row ${t.id === editId ? 'editing' : ''}">
+        <span class="seed ${t.seed ? 'on' : ''}">${t.seed ? '#' + t.seed : '–'}</span>
+        <div class="db-logo">${t.logo ? `<img src="${esc(t.logo)}" alt="">` : `<span class="initial">${esc(t.name.charAt(0).toUpperCase())}</span>`}</div>
+        <div class="db-name">${esc(t.name)}</div>
+        <div class="db-act"><button class="lnk" data-edit="${t.id}">Edit</button><button class="lnk danger" data-del="${t.id}">Delete</button></div>
+      </div>`).join('') : '<div class="db-empty">No teams yet — add them below.</div>';
+    $('#dbList').querySelectorAll('[data-edit]').forEach(b => b.onclick = () => startEdit(teamById(lastView, b.dataset.edit)));
+    $('#dbList').querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
+      const t = teamById(lastView, b.dataset.del);
+      if (!confirm(`Delete ${t.name} from the database?`)) return;
+      if (editId === t.id) resetForm();
+      quiet(act({ action: 'team_delete', id: t.id }, 'Team deleted'));
+    });
+    renderSeedOptions(v);
+  }
+
+  function setPreview(src) {
+    $('#tLogoPrev').innerHTML = src ? `<img src="${esc(src)}" alt="">` : '<span>Upload<br>logo</span>';
+    $('#tLogoClear').style.display = src ? '' : 'none';
+  }
+  function resetForm() {
+    editId = ''; clearLogo = false;
+    $('#dbForm').reset();
+    $('#dbFormTitle').textContent = 'Add team';
+    $('#tSave').textContent = 'Add team';
+    $('#tCancel').style.display = 'none';
+    setPreview('');
+    lastView && renderDb(lastView);
+  }
+  function startEdit(t) {
+    editId = t.id; clearLogo = false;
+    $('#tName').value = t.name;
+    $('#dbFormTitle').textContent = `Edit ${t.name}`;
+    $('#tSave').textContent = 'Save team';
+    $('#tCancel').style.display = '';
+    $('#tLogo').value = '';
+    setPreview(t.logo);
+    renderDb(lastView);
+    $('#tSeed').value = t.seed || '';
+    $('#tName').focus();
+  }
+  $('#tCancel').onclick = resetForm;
+  $('#tLogo').onchange = e => {
+    const f = e.target.files[0];
+    if (f) { clearLogo = false; setPreview(URL.createObjectURL(f)); }
+  };
+  $('#tLogoClear').onclick = () => { $('#tLogo').value = ''; clearLogo = true; setPreview(''); };
+  $('#dbForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const fd = new FormData();
+    fd.append('action', 'team_save'); fd.append('token', token);
+    fd.append('id', editId); fd.append('name', $('#tName').value.trim()); fd.append('seed', $('#tSeed').value);
+    if ($('#tLogo').files[0]) fd.append('file', $('#tLogo').files[0]);
+    if (clearLogo) fd.append('clearLogo', '1');
+    $('#tSave').disabled = true;
+    try { await RV.upload(fd); RV.toast(editId ? 'Team saved' : 'Team added'); resetForm(); }
+    catch (err) { RV.toast(err.message, true); }
+    finally { $('#tSave').disabled = false; }
+  });
+
+  // ------------------------------------------------------------ discord
+  $('#bWhSave').onclick = () => quiet(act({ action: 'settings', webhook: $('#webhook').value.trim() }, 'Webhook saved'));
+  $('#bWhTest').onclick = async () => {
+    try {
+      await RV.post({ token, action: 'settings', webhook: $('#webhook').value.trim() });
+      await act({ action: 'webhook_test' }, 'Test message sent to Discord');
+    } catch (e) { RV.toast(e.message, true); }
+  };
+  function renderWebhook(v) {
+    const set = v.settings || {};
+    const inp = $('#webhook');
+    if (document.activeElement !== inp && !inp.dataset.dirty) inp.value = set.webhook || '';
+    const w = v.s.webhook;
+    let html = `<span class="pill ${set.webhookActive ? 'ok' : ''}">${set.webhookActive ? 'Webhook on' : 'No webhook'}</span>`;
+    if (v.done && set.webhookActive) {
+      if (!w) html += '<span class="pill wait">Not posted yet</span>';
+      else if (w.status === 'sent') html += `<span class="pill ok">Posted to Discord</span>`;
+      else if (w.status === 'sending') html += '<span class="pill wait">Posting…</span>';
+      else html += `<span class="pill bad" title="${esc(w.error || '')}">Post failed</span>`;
+      html += '<button class="lnk" id="bResend">Post again</button>';
+    }
+    $('#whStatus').innerHTML = html;
+    const rs = $('#bResend');
+    if (rs) rs.onclick = () => quiet(act({ action: 'webhook_resend' }, 'Posted to Discord'));
+  }
+  $('#webhook').addEventListener('input', e => e.target.dataset.dirty = '1');
+  $('#bWhSave').addEventListener('click', () => delete $('#webhook').dataset.dirty);
+
+  // ------------------------------------------------------------ links / copy
+  document.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => copy($('#' + b.dataset.copy).textContent));
+  $('#bCopySum').onclick = () => copy($('#summary').value);
+  function copy(txt) {
+    (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject())
+      .then(() => RV.toast('Copied'))
+      .catch(() => { const t = document.createElement('textarea'); t.value = txt; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); RV.toast('Copied'); });
+  }
+
+  const setVal = (el, val) => { if (document.activeElement !== el) el.value = val; };
+
+  // ------------------------------------------------------------ render
   function render(v) {
+    lastView = v;
     $('#kick').textContent = v.s.title;
     setVal($('#title'), v.s.title);
     document.querySelectorAll('#format button').forEach(b => b.classList.toggle('on', b.dataset.f === v.s.format));
@@ -301,35 +490,32 @@
     $('#deciderSide').disabled = !v.s.sidePick;
     setVal($('#deciderSide'), v.s.deciderSide);
 
-    document.querySelectorAll('.teamcfg').forEach(row => {
-      const t = row.dataset.team, team = v.s.teams[t];
-      setVal(row.querySelector('.in'), team.name);
-      const box = row.querySelector('.logo-box');
-      const input = box.querySelector('input');
-      box.innerHTML = team.logo ? `<img src="${RV.esc(team.logo)}" alt="">` : `<span class="initial">UPLOAD<br>LOGO</span>`;
-      box.appendChild(input);
-      row.querySelector('.rm').style.display = team.logo ? '' : 'none';
-    });
+    renderSelects(v);
     renderPool(v);
+    renderDb(v);
+    renderWebhook(v);
 
-    const base = location.href.replace(/\/admin(\.html)?(\?.*)?$/, '/');
-    $('#lTablet').textContent = base + 'tablet' + (tabletKey ? '?k=' + encodeURIComponent(tabletKey) : '');
-    $('#navTablet').href = $('#lTablet').textContent;
+    const base = location.href.replace(/\/admin(\.html)?(\?.*)?(#.*)?$/, '/');
+    $('#lTablet').textContent = base + 'tablet';
     $('#lOverlay').textContent = base + 'overlay';
 
     UI.teams($('#teams'), v);
     UI.banner($('#banner'), v);
     const isSide = v.current && v.current.type === 'side';
     $('#sideWrap').style.display = isSide ? 'block' : 'none';
-    if (isSide) UI.sidePicker($('#side'), v, side => act({ action: 'choose', step: v.idx, side }));
+    if (isSide) UI.sidePicker($('#side'), v, side => quiet(act({ action: 'choose', step: v.idx, side })));
     UI.maps($('#maps'), v, true, async id => {
-      if (await UI.confirmMap(v, id, v.current.type)) act({ action: 'choose', step: v.idx, map: id });
+      if (await UI.confirmMap(v, id, v.current.type)) quiet(act({ action: 'choose', step: v.idx, map: id }));
     });
     $('#summary').value = RV.summaryText(v);
     $('#bUndo').disabled = !v.s.actions.length;
   }
 
-  document.getElementById('yr').textContent = new Date().getFullYear();
+  // after "Set teams" the dropdowns follow the match again
+  const origSet = $('#bSetTeams').onclick;
+  $('#bSetTeams').onclick = () => { origSet(); ['#selA', '#selB'].forEach(id => delete $(id).dataset.touched); };
+
+  $('#yr').textContent = new Date().getFullYear();
   if (token) login(token).catch(() => { $('#login').style.display = 'grid'; });
   else $('#login').style.display = 'grid';
 </script>

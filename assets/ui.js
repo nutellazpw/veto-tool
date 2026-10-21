@@ -9,7 +9,7 @@ const UI = (() => {
       <div class="team ${t} ${active === t ? 'active' : ''}">
         <div class="logo-box">${RV.teamLogoHTML(v, t)}</div>
         <div class="info">
-          <div class="label">Team ${t.toUpperCase()}</div>
+          <div class="label">Team ${t.toUpperCase()}${v.s.teams[t].seed ? ` · Seed #${v.s.teams[t].seed}` : ''}</div>
           <div class="name">${esc(v.s.teams[t].name)}</div>
           <div class="turn"><span class="live-badge"><img src="assets/live-icon.png" alt="">On turn</span></div>
         </div>

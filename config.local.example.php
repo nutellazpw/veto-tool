@@ -1,7 +1,11 @@
 <?php
-// Kopiraj kao config.local.php direktno na server (cPanel File Manager).
-// Ovaj fajl se NE nalazi u gitu i deploy ga nikad ne dira.
+// Copy this file to config.local.php on the server (cPanel File Manager) and fill it in.
+// config.local.php is NOT in git and deploys never touch it.
 return [
-    'admin_token' => 'JAKA_ADMIN_LOZINKA',
-    'tablet_key'  => 'kljuc-za-tablet',
+    // Password for /admin
+    'admin_token' => 'STRONG_ADMIN_PASSWORD',
+
+    // Optional: Discord webhook that receives the result when a veto finishes.
+    // You can also set/change it later in the admin panel.
+    'discord_webhook' => '',
 ];

@@ -33,5 +33,5 @@ jobs:
             .github/**
             README.md
             config.local.php
-            data/state.json
+            data/*.json
             uploads/team_*

@@ -14,7 +14,6 @@
   #app { display: flex; flex-direction: column; gap: 20px; }
   #sideWrap, #resWrap { display: none; }
   #resWrap .section-title { margin-top: 14px; }
-  .locked { min-height: 50vh; display: grid; place-items: center; text-align: center; }
 </style>
 </head>
 <body>
@@ -63,13 +62,12 @@
 <script src="assets/ui.js"></script>
 <script>
   document.getElementById('yr').textContent = new Date().getFullYear();
-  const key = new URLSearchParams(location.search).get('k') || '';
   let busy = false;
 
   async function choose(body) {
     if (busy) return;
     busy = true;
-    try { await RV.post({ action: 'choose', key, step: RV.view().idx, ...body }); }
+    try { await RV.post({ action: 'choose', step: RV.view().idx, ...body }); }
     catch (e) { RV.toast(e.message, true); }
     finally { busy = false; }
   }
@@ -93,13 +91,7 @@
     UI.results(document.getElementById('results'), v);
   }
 
-  function locked(msg) {
-    document.getElementById('app').innerHTML = `<div class="locked tour-block"><div><div class="step-cat ban">Tablet locked</div><div class="step-title">No access</div><div class="step-sub">${msg}</div></div></div>`;
-  }
-  fetch('api.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'key', key }) })
-    .then(r => r.json())
-    .then(j => j.ok ? RV.poll(render, 700) : locked('Open the tablet link from the admin panel.'))
-    .catch(() => locked('Server not reachable.'));
+  RV.poll(render, 700);
 
   if ('wakeLock' in navigator) {
     const lock = () => navigator.wakeLock.request('screen').catch(() => {});

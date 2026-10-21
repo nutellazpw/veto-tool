@@ -1,24 +1,24 @@
 <?php
 // =====================================================================
-//  RELOG VETO — opšta podešavanja
+//  RELOG VETO — general settings
 //
-//  !!! NE UPISUJ OVDE LOZINKE !!!
-//  Ovaj fajl je u gitu i svaki deploy ga pregazi.
-//  Admin lozinka i tablet ključ idu SAMO u config.local.php na serveru
-//  (šablon: config.local.example.php) — deploy taj fajl nikad ne dira.
+//  !!! DO NOT PUT PASSWORDS HERE !!!
+//  This file is in git and every deploy overwrites it.
+//  The admin password goes ONLY into config.local.php on the server
+//  (template: config.local.example.php) — deploys never touch that file.
 // =====================================================================
 $local = is_file(__DIR__ . '/config.local.php') ? (require __DIR__ . '/config.local.php') : [];
 if (!is_array($local)) $local = [];
 
-// Lozinka za /admin. Prazna = admin je zaključan dok se ne napravi config.local.php.
+// Admin password. Empty = admin stays locked until config.local.php exists.
 define('ADMIN_TOKEN', (string)($local['admin_token'] ?? ''));
 
-// Ključ za tablet (/tablet?k=KLJUC). Prazan = tablet radi bez ključa.
-define('TABLET_KEY', (string)($local['tablet_key'] ?? ''));
+// Optional default Discord webhook (can also be set in the admin panel, which takes priority).
+define('DISCORD_WEBHOOK_DEFAULT', (string)($local['discord_webhook'] ?? ''));
 
-// Gde se čuva stanje veta i logoi (folderi moraju biti upisivi za PHP)
+// Where the veto state, team database and logos live (must be writable by PHP)
 define('DATA_DIR', __DIR__ . '/data');
 define('UPLOAD_DIR', __DIR__ . '/uploads');
 
-// Maks. veličina logoa
+// Max logo size
 define('MAX_LOGO_BYTES', 5 * 1024 * 1024);

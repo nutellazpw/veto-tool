@@ -9,10 +9,12 @@ const RV = (() => {
 
   let payload = null;
   let version = -1;
+  let token = '';
+  const setToken = t => { token = t || ''; version = -1; };
   const listeners = [];
 
   async function get(force) {
-    const r = await fetch(API + '?since=' + (force ? -1 : version), { cache: 'no-store' });
+    const r = await fetch(API + '?since=' + (force ? -1 : version), { cache: 'no-store', headers: token ? { 'X-Admin-Token': token } : {} });
     const j = await r.json();
     if (j.same) return false;
     set(j);
@@ -27,18 +29,19 @@ const RV = (() => {
 
   async function post(body) {
     const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    const j = await r.json().catch(() => ({ error: 'Server greška' }));
+    const j = await r.json().catch(() => ({ error: 'Server error' }));
     if (j.state) set(j);
     else if (j.payload) set(j.payload);
-    if (!r.ok) throw new Error(j.error || 'Greška');
+    if (!r.ok) throw new Error(j.error || 'Error');
     return j;
   }
 
   async function upload(form) {
     const r = await fetch(API, { method: 'POST', body: form });
-    const j = await r.json().catch(() => ({ error: 'Server greška' }));
+    const j = await r.json().catch(() => ({ error: 'Server error' }));
     if (j.state) set(j);
-    if (!r.ok) throw new Error(j.error || 'Greška');
+    else if (j.payload) set(j.payload);
+    if (!r.ok) throw new Error(j.error || 'Error');
     return j;
   }
 
@@ -56,7 +59,7 @@ const RV = (() => {
 
   /** Derive everything a screen needs from raw payload. */
   function view() {
-    const { state: s, steps, catalog, mapImages } = payload;
+    const { state: s, steps, catalog, mapImages, db, settings } = payload;
     const idx = s.actions.length;
     const current = steps[idx] || null;
     const done = !current;
@@ -83,7 +86,7 @@ const RV = (() => {
         if (['pick', 'decider'].includes(s.actions[i].type)) { sideMap = s.actions[i].map; break; }
       }
     }
-    return { s, steps, idx, current, done, status, played, catalog, mapImages, sideMap };
+    return { s, steps, idx, current, done, status, played, catalog, mapImages, sideMap, db: db || [], settings: settings || {} };
   }
 
   const teamName = (v, t) => t ? v.s.teams[t].name : '';
@@ -155,5 +158,5 @@ const RV = (() => {
     clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 2600);
   }
 
-  return { get, post, upload, poll, view, set, teamName, mapName, sideLabel, mapBg, teamLogoHTML, headline, summaryText, stepVerb, esc, toast, MAP_TINT, LOGO_URL, get payload() { return payload; } };
+  return { setToken, get, post, upload, poll, view, set, teamName, mapName, sideLabel, mapBg, teamLogoHTML, headline, summaryText, stepVerb, esc, toast, MAP_TINT, LOGO_URL, get payload() { return payload; } };
 })();

@@ -15,6 +15,51 @@ const MAP_CATALOG = [
 ];
 
 const DEFAULT_POOL = ['ancient', 'anubis', 'cache', 'dust2', 'inferno', 'mirage', 'nuke'];
+const MAX_SEED = 8;
+
+// ===================================================================== JSON storage
+
+function json_path(string $name): string { return DATA_DIR . '/' . $name . '.json'; }
+
+function read_json(string $name, array $default): array {
+    $f = json_path($name);
+    if (!is_file($f)) return $default;
+    $fh = fopen($f, 'r');
+    if (!$fh) return $default;
+    flock($fh, LOCK_SH);
+    $raw = stream_get_contents($fh);
+    flock($fh, LOCK_UN);
+    fclose($fh);
+    $d = json_decode($raw ?: '', true);
+    return is_array($d) ? $d : $default;
+}
+
+/** Atomic read-modify-write under an exclusive lock. $fn gets data by reference and may throw. */
+function write_json(string $name, array $default, callable $fn): array {
+    if (!is_dir(DATA_DIR)) mkdir(DATA_DIR, 0775, true);
+    $fh = fopen(json_path($name), 'c+');
+    if (!$fh) throw new RuntimeException("Cannot open data/$name.json (folder permissions?)");
+    flock($fh, LOCK_EX);
+    try {
+        $d = json_decode(stream_get_contents($fh) ?: '', true);
+        $d = is_array($d) ? $d : $default;
+        $fn($d);
+        ftruncate($fh, 0);
+        rewind($fh);
+        fwrite($fh, json_encode($d, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        fflush($fh);
+    } finally {
+        flock($fh, LOCK_UN);
+        fclose($fh);
+    }
+    return $d;
+}
+
+// ===================================================================== veto state
+
+function blank_team(string $t): array {
+    return ['id' => '', 'name' => 'Team ' . strtoupper($t), 'logo' => '', 'seed' => null];
+}
 
 function default_state(): array {
     return [
@@ -25,53 +70,31 @@ function default_state(): array {
         'sidePick'    => true,
         'deciderSide' => 'knife',      // knife | a | b
         'pool'        => DEFAULT_POOL,
-        'teams'       => [
-            'a' => ['name' => 'Team A', 'logo' => ''],
-            'b' => ['name' => 'Team B', 'logo' => ''],
-        ],
+        'teams'       => ['a' => blank_team('a'), 'b' => blank_team('b')],
         'actions'     => [],
+        'webhook'     => null,         // result of the last Discord post for this veto
     ];
 }
 
-function state_file(): string { return DATA_DIR . '/state.json'; }
-
-/** Read state (shared lock). */
-function load_state(): array {
-    $f = state_file();
-    if (!is_file($f)) return default_state();
-    $fh = fopen($f, 'r');
-    if (!$fh) return default_state();
-    flock($fh, LOCK_SH);
-    $raw = stream_get_contents($fh);
-    flock($fh, LOCK_UN);
-    fclose($fh);
-    $s = json_decode($raw, true);
-    return is_array($s) ? array_replace(default_state(), $s) : default_state();
+function normalize_state(array $s): array {
+    $s = array_replace(default_state(), $s);
+    foreach (['a', 'b'] as $t) $s['teams'][$t] = array_replace(blank_team($t), (array)($s['teams'][$t] ?? []));
+    return $s;
 }
 
-/** Atomic read-modify-write under exclusive lock. $fn receives state by ref and may throw. */
+function load_state(): array { return normalize_state(read_json('state', default_state())); }
+
+/** Mutate the veto state; bumps version and runs the auto-decider. */
 function mutate_state(callable $fn): array {
-    if (!is_dir(DATA_DIR)) mkdir(DATA_DIR, 0775, true);
-    $fh = fopen(state_file(), 'c+');
-    if (!$fh) throw new RuntimeException('Ne mogu da otvorim data/state.json (dozvole foldera?)');
-    flock($fh, LOCK_EX);
-    $raw = stream_get_contents($fh);
-    $s = json_decode($raw ?: '', true);
-    $s = is_array($s) ? array_replace(default_state(), $s) : default_state();
-    try {
+    $s = write_json('state', default_state(), function (&$s) use ($fn) {
+        $s = normalize_state($s);
         $fn($s);
         auto_advance($s);
+        if (count($s['actions']) < count(build_steps($s))) $s['webhook'] = null; // veto re-opened → may post again
         $s['version'] = ($s['version'] ?? 0) + 1;
         $s['updatedAt'] = time();
-        ftruncate($fh, 0);
-        rewind($fh);
-        fwrite($fh, json_encode($s, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-        fflush($fh);
-    } finally {
-        flock($fh, LOCK_UN);
-        fclose($fh);
-    }
-    return $s;
+    });
+    return normalize_state($s);
 }
 
 function other(string $t): string { return $t === 'a' ? 'b' : 'a'; }
@@ -97,6 +120,8 @@ function build_steps(array $s): array {
     }
     return $steps;
 }
+
+function is_complete(array $s): bool { return count($s['actions']) >= count(build_steps($s)); }
 
 function remaining_maps(array $s): array {
     // side actions repeat a map, so look only at ban/pick/decider
@@ -131,18 +156,18 @@ function auto_advance(array &$s): void {
 function apply_choice(array &$s, ?int $expectStep, ?string $map, ?string $side): void {
     $steps = build_steps($s);
     $i = count($s['actions']);
-    if (!isset($steps[$i])) throw new InvalidArgumentException('Veto je završen.');
-    if ($expectStep !== null && $expectStep !== $i) throw new InvalidArgumentException('Korak je već odigran — osveženo.');
+    if (!isset($steps[$i])) throw new InvalidArgumentException('The veto is already complete.');
+    if ($expectStep !== null && $expectStep !== $i) throw new InvalidArgumentException('That step was already played — refreshed.');
     $step = $steps[$i];
 
     if ($step['type'] === 'ban' || $step['type'] === 'pick') {
-        if (!$map || !in_array($map, remaining_maps($s), true)) throw new InvalidArgumentException('Mapa nije dostupna.');
+        if (!$map || !in_array($map, remaining_maps($s), true)) throw new InvalidArgumentException('That map is not available.');
         $s['actions'][] = ['type' => $step['type'], 'team' => $step['team'], 'map' => $map, 'side' => null, 't' => time()];
     } elseif ($step['type'] === 'side') {
-        if (!in_array($side, ['ct', 't'], true)) throw new InvalidArgumentException('Izaberi CT ili T.');
+        if (!in_array($side, ['ct', 't'], true)) throw new InvalidArgumentException('Choose CT or T.');
         $s['actions'][] = ['type' => 'side', 'team' => $step['team'], 'map' => last_played_map($s), 'side' => $side, 't' => time()];
     } else {
-        throw new InvalidArgumentException('Neočekivan korak.');
+        throw new InvalidArgumentException('Unexpected step.');
     }
 }
 
@@ -154,12 +179,157 @@ function map_images(): array {
     return $out;
 }
 
+/** What everyone (tablet, overlay) may see. Seeds stay admin-only. */
 function public_payload(array $s): array {
+    $pub = $s;
+    foreach (['a', 'b'] as $t) unset($pub['teams'][$t]['seed'], $pub['teams'][$t]['id']);
+    unset($pub['webhook']);
     return [
-        'state'     => $s,
+        'state'     => $pub,
         'steps'     => build_steps($s),
         'catalog'   => MAP_CATALOG,
         'mapImages' => map_images(),
-        'tabletKeyRequired' => TABLET_KEY !== '',
     ];
+}
+
+function admin_payload(array $s): array {
+    $p = public_payload($s);
+    $p['state'] = $s;
+    $p['db'] = load_teams();
+    $settings = load_settings();
+    $p['settings'] = [
+        'webhook'       => $settings['webhook'],
+        'webhookActive' => effective_webhook() !== '',
+    ];
+    return $p;
+}
+
+// ===================================================================== team database
+
+function load_teams(): array {
+    $teams = read_json('teams', [])['teams'] ?? [];
+    usort($teams, fn($x, $y) => [($x['seed'] ?? 99), mb_strtolower($x['name'])] <=> [($y['seed'] ?? 99), mb_strtolower($y['name'])]);
+    return $teams;
+}
+
+function find_team(string $id): ?array {
+    foreach (load_teams() as $t) if ($t['id'] === $id) return $t;
+    return null;
+}
+
+/** Copy a DB team into the match slot shape. */
+function team_slot(array $t): array {
+    return ['id' => $t['id'], 'name' => $t['name'], 'logo' => $t['logo'] ?? '', 'seed' => $t['seed'] ?? null];
+}
+
+// ===================================================================== settings + Discord
+
+function load_settings(): array { return array_replace(['webhook' => ''], read_json('settings', [])); }
+
+function effective_webhook(): string {
+    $w = trim(load_settings()['webhook']);
+    return $w !== '' ? $w : DISCORD_WEBHOOK_DEFAULT;
+}
+
+function valid_webhook(string $url): bool {
+    return (bool)preg_match('~^https://(?:www\.|ptb\.|canary\.)?(?:discord|discordapp)\.com/api/webhooks/\d+/[\w-]+$~', $url);
+}
+
+function side_name(string $x): string { return $x === 'ct' ? 'CT' : 'T'; }
+
+/** Build the Discord message for a finished veto. */
+function discord_message(array $s): array {
+    $A = $s['teams']['a']['name'];
+    $B = $s['teams']['b']['name'];
+    $tn = fn($t) => $t ? $s['teams'][$t]['name'] : '';
+    $mn = fn($m) => MAP_CATALOG[$m] ?? $m;
+
+    $vetoLines = [];
+    $played = [];
+    $n = 0;
+    foreach ($s['actions'] as $a) {
+        if ($a['type'] === 'ban') $vetoLines[] = sprintf('`%d.` ❌ **%s** banned %s', ++$n, $tn($a['team']), $mn($a['map']));
+        elseif ($a['type'] === 'pick') { $vetoLines[] = sprintf('`%d.` ✅ **%s** picked %s', ++$n, $tn($a['team']), $mn($a['map'])); $played[$a['map']] = ['how' => $tn($a['team']) . ' pick']; }
+        elseif ($a['type'] === 'decider') { $vetoLines[] = sprintf('`%d.` ⚪ %s left over (decider)', ++$n, $mn($a['map'])); $played[$a['map']] = ['how' => 'Decider']; }
+        elseif ($a['type'] === 'side') { $vetoLines[] = sprintf('　↳ **%s** chose %s on %s', $tn($a['team']), side_name($a['side']), $mn($a['map'])); $played[$a['map']]['side'] = $tn($a['team']) . ' starts ' . side_name($a['side']); }
+    }
+
+    $mapLines = [];
+    $i = 0;
+    foreach ($played as $map => $p) {
+        $side = $p['side'] ?? ($p['how'] === 'Decider' && $s['deciderSide'] === 'knife' ? 'knife for side' : '');
+        $mapLines[] = sprintf('**Map %d — %s** · %s%s', ++$i, $mn($map), $p['how'], $side ? " · $side" : '');
+    }
+
+    return [
+        'username' => 'Relog Veto',
+        'embeds' => [[
+            'title'       => "$A vs $B — " . strtoupper($s['format']) . ' map veto',
+            'description' => $s['title'],
+            'color'       => 0xFF6700,
+            'fields'      => [
+                ['name' => 'Maps', 'value' => implode("\n", $mapLines) ?: '—'],
+                ['name' => 'Veto', 'value' => mb_substr(implode("\n", $vetoLines), 0, 1024) ?: '—'],
+            ],
+            'footer'      => ['text' => 'Relog Media · veto tool'],
+            'timestamp'   => gmdate('c'),
+        ]],
+        'allowed_mentions' => ['parse' => []],
+    ];
+}
+
+/** POST JSON to a Discord webhook. Returns [ok, http code, error text]. */
+function post_discord(string $url, array $payload): array {
+    $body = json_encode($payload, JSON_UNESCAPED_UNICODE);
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $body,
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 8,
+            CURLOPT_CONNECTTIMEOUT => 4,
+        ]);
+        $resp = curl_exec($ch);
+        $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $err = $resp === false ? curl_error($ch) : '';
+        curl_close($ch);
+    } else {
+        $ctx = stream_context_create(['http' => ['method' => 'POST', 'header' => "Content-Type: application/json\r\n", 'content' => $body, 'timeout' => 8, 'ignore_errors' => true]]);
+        $resp = @file_get_contents($url, false, $ctx);
+        $code = isset($http_response_header[0]) && preg_match('~\s(\d{3})\s~', $http_response_header[0], $m) ? (int)$m[1] : 0;
+        $err = $resp === false ? 'request failed' : '';
+    }
+    $ok = $code >= 200 && $code < 300;
+    if (!$ok && !$err) $err = 'HTTP ' . $code . ($resp ? ': ' . mb_substr((string)$resp, 0, 200) : '');
+    return [$ok, $code, $err];
+}
+
+/**
+ * Post the finished veto to Discord once. Called after every state change;
+ * claims the send under the state lock so two requests can never double-post.
+ */
+function maybe_send_webhook(bool $force = false): ?array {
+    $url = effective_webhook();
+    if ($url === '') return null;
+
+    $claimed = false;
+    $s = write_json('state', default_state(), function (&$s) use (&$claimed, $force) {
+        $s = normalize_state($s);
+        if (!is_complete($s)) return;
+        if (!$force && $s['webhook'] !== null) return;
+        $s['webhook'] = ['status' => 'sending', 't' => time()];
+        $claimed = true;
+    });
+    if (!$claimed) return null;
+
+    $s = normalize_state($s);
+    [$ok, $code, $err] = post_discord($url, discord_message($s));
+    $result = ['status' => $ok ? 'sent' : 'failed', 'code' => $code, 'error' => $err, 't' => time()];
+    write_json('state', default_state(), function (&$st) use ($result) {
+        $st['webhook'] = $result;
+        $st['version'] = ($st['version'] ?? 0) + 1; // let the admin panel pick up the status
+    });
+    return $result;
 }
