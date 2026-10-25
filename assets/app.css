@@ -149,6 +149,9 @@ a:hover { color: var(--orange-hover); }
 .coin-face img { width: 64%; height: 64%; object-fit: contain; filter: drop-shadow(0 2px 3px rgba(0,0,0,.35)); }
 .coin-face span { font-weight: var(--fw-bold); font-size: 54px; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,.35); }
 .coin.landed { animation: coinLand .35s ease-out; }
+.coin-card.idle-card { border-color: var(--line); }
+.coin-wrap.idle .coin { animation: coinIdle 4s ease-in-out infinite; }
+@keyframes coinIdle { 0%, 100% { transform: rotateY(-18deg); } 50% { transform: rotateY(18deg); } }
 @keyframes coinLand { 50% { filter: brightness(1.35); } }
 .coin-info { min-width: 0; flex: 1; }
 .coin-title { font-weight: var(--fw-semibold); font-size: 40px; line-height: 44px; text-transform: uppercase; margin-top: 4px; }

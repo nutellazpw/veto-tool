@@ -15,7 +15,7 @@ Everything syncs live (polling ~0.7 s).
 ## Admin workflow
 1. **Team database** — add the teams once (name, seed 1–8, logo). Seeds are unique.
 2. **Match setup** (top of the admin) — pick Team A and Team B from the dropdowns. The panel shows who the higher seed is, so you know whom to ask whether they want to be Team A (bans first) or Team B. Click **Set teams**.
-   - Or click **🪙 Coin toss**: the server flips a fair coin, the tablet shows the flip, and the toss winner taps **Ban first** or **Ban second** on the tablet (the admin can also choose for them). Teams are swapped automatically so the right team starts. **Toss again** / **Clear toss** are in the coin card.
+   - Or use the coin toss — **🪙 Flip coin** on the tablet (once per match, before the veto starts) or **🪙 Coin toss** in the admin (any time, also to toss again): the server flips a fair coin, the tablet shows the flip, and the toss winner taps **Ban first** or **Ban second** on the tablet (the admin can also choose for them). Teams are swapped automatically so the right team starts. **Toss again** / **Clear toss** are in the coin card.
 3. The teams play the veto on `/tablet`. Map choices are locked until the toss winner has chosen.
 4. When the last step is played, the result is posted to Discord automatically (once per veto; **Post again** re-sends it).
 

@@ -74,6 +74,16 @@
     finally { busy = false; }
   }
 
+  async function flip() {
+    if (busy) return;
+    const v = RV.view();
+    if (!await UI.confirmText('Coin toss', `Flip the coin for <span class="tn">${RV.esc(v.s.teams.a.name)}</span> vs <span class="tn">${RV.esc(v.s.teams.b.name)}</span>?`, 'Flip coin')) return;
+    busy = true;
+    try { await RV.post({ action: 'coin_toss' }); }
+    catch (e) { RV.toast(e.message, true); }
+    finally { busy = false; }
+  }
+
   async function decide(choice) {
     if (busy) return;
     const w = RV.teamName(RV.view(), RV.view().coin.winner);
@@ -90,10 +100,12 @@
     document.title = `Live Veto · ${v.s.teams.a.name} vs ${v.s.teams.b.name}`;
     UI.teams(document.getElementById('teams'), v);
     // coin toss card replaces the step banner until the veto starts
-    const showCoin = !!v.coin && !v.s.actions.length;
+    const notStarted = !v.s.actions.length;
     const coinEl = document.getElementById('coin');
-    if (showCoin) UI.coin(coinEl, v, { onChoose: decide }); else UI.coin(coinEl, { coin: null });
-    document.getElementById('banner').style.display = showCoin ? 'none' : '';
+    if (notStarted) UI.coin(coinEl, v, { onChoose: decide, onFlip: flip }); else UI.coin(coinEl, { coin: null });
+    coinEl.classList.toggle('idle-card', notStarted && !v.coin);
+    // an active toss replaces the step banner; the idle "flip" card sits above it
+    document.getElementById('banner').style.display = notStarted && v.coin ? 'none' : '';
     UI.banner(document.getElementById('banner'), v);
     UI.timeline(document.getElementById('timeline'), v);
 

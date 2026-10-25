@@ -100,7 +100,26 @@ const UI = (() => {
     const c = v.coin;
     if (!c) {
       if (coinSeen === null) coinSeen = 0;           // page was open with no toss → the next toss animates
-      el.innerHTML = ''; el.hidden = true; el.dataset.key = ''; return;
+      if (!opts.onFlip) { el.innerHTML = ''; el.hidden = true; el.dataset.key = ''; return; }
+      const key = ['idle', v.s.teams.a.name, v.s.teams.b.name, v.s.teams.a.logo, v.s.teams.b.logo].join('|');
+      el.hidden = false;
+      if (el.dataset.key === key) return;
+      el.dataset.key = key;
+      el.innerHTML = `
+        <div class="coin-wrap idle">
+          <div class="coin-stage"><div class="coin">
+            <div class="coin-face a">${coinFace(v, 'a')}</div>
+            <div class="coin-face b">${coinFace(v, 'b')}</div>
+          </div></div>
+          <div class="coin-info">
+            <div class="step-cat">Coin toss</div>
+            <div class="coin-title">Who bans first?</div>
+            <div class="coin-sub">Flip the coin — the winner chooses to ban first or second.</div>
+            <div class="coin-btns"><button class="btn" data-flip>🪙 Flip coin</button></div>
+          </div>
+        </div>`;
+      el.querySelector('[data-flip]').onclick = opts.onFlip;
+      return;
     }
     el.hidden = false;
     const winner = RV.teamName(v, c.winner);

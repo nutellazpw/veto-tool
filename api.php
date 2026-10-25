@@ -135,13 +135,22 @@ try {
         out(payload_for($admin, $s));
     }
 
+    if ($action === 'coin_toss') {
+        // Anyone can flip from the tablet, but only once per match and only before the veto starts
+        // (so nobody can re-flip until they win). The admin can always toss again.
+        $s = mutate_state(function (&$s) use ($admin) {
+            if (!$admin) {
+                if ($s['actions']) throw new InvalidArgumentException('The veto has already started.');
+                if ($s['coin']) throw new InvalidArgumentException('The coin has already been tossed for this match.');
+            }
+            coin_toss($s);
+        });
+        out(payload_for($admin, $s));
+    }
+
     if (!$admin) out(['error' => 'Admin only.'], 403);
 
     switch ($action) {
-        case 'coin_toss':
-            $s = load_state();
-            if (!$s['teams']['a']['name'] || !$s['teams']['b']['name']) throw new InvalidArgumentException('Set both teams first.');
-            out(payload_for(true, mutate_state(function (&$s) { coin_toss($s); })));
 
         case 'coin_clear':
             out(payload_for(true, mutate_state(function (&$s) { $s['coin'] = null; })));
