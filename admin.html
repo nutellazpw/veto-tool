@@ -29,6 +29,9 @@
   /* ---- match setup (top) */
   .match-setup { background: var(--surface); box-shadow: var(--shadow); border: 1px solid var(--line); border-radius: var(--r); padding: 24px; }
   .match-grid { display: grid; grid-template-columns: 1fr 1fr auto; gap: 20px; align-items: end; }
+  .setup-btns { display: flex; gap: 10px; }
+  .setup-btns .btn { padding-left: 22px; padding-right: 22px; white-space: nowrap; }
+  #coin .coin-title { font-size: 32px; line-height: 36px; }
   .seed-hint { margin-top: 18px; display: flex; gap: 14px; align-items: center; border: 2px solid var(--orangeColor); background: var(--orange-soft); border-radius: 0 10px 0 10px; padding: 12px 16px; font-size: 18px; }
   .seed-hint .big { flex: none; font-weight: var(--fw-bold); font-size: 15px; text-transform: uppercase; color: #fff; background: var(--orangeColor); padding: 4px 10px; border-radius: 0 8px 0 8px; }
   .seed-hint b { color: var(--orangeColor); font-weight: var(--fw-semibold); }
@@ -117,6 +120,7 @@
   @media (max-width: 1000px) { .settings-grid, .bottom-grid { grid-template-columns: 1fr; } }
   @media (max-width: 760px) {
     .match-grid { grid-template-columns: 1fr; }
+    .setup-btns .btn { flex: 1; }
     .live-col .maps { grid-template-columns: repeat(2, 1fr); }
     .live-col .teams { grid-template-columns: 1fr; }
   }
@@ -169,9 +173,10 @@
     <div class="match-grid">
       <div><label class="f first" for="selA">Team A · bans first</label><select class="in" id="selA"></select></div>
       <div><label class="f first" for="selB">Team B</label><select class="in" id="selB"></select></div>
-      <button class="btn" id="bSetTeams">Set teams</button>
+      <div class="setup-btns"><button class="btn" id="bSetTeams">Set teams</button><button class="btn ghost" id="bCoin">🪙 Coin toss</button></div>
     </div>
     <div class="seed-hint" id="seedHint"></div>
+    <div class="coin-card" id="coin" hidden style="margin-top:18px"></div>
   </section>
 
   <section class="settings-panel" id="settingsPanel" hidden>
@@ -357,6 +362,20 @@
   }
   ['#selA', '#selB'].forEach(id => $(id).addEventListener('change', e => e.target.dataset.touched = '1'));
 
+  // ------------------------------------------------------------ coin toss
+  function toss() {
+    if (!lastView) return;
+    if (lastView.s.actions.length && !confirm('A coin toss restarts the veto in progress. Continue?')) return;
+    quiet(act({ action: 'coin_toss' }));
+  }
+  $('#bCoin').onclick = toss;
+  const coinOpts = {
+    admin: true,
+    onToss: toss,
+    onClear: () => quiet(act({ action: 'coin_clear' }, 'Coin toss cleared')),
+    onChoose: choice => quiet(act({ action: 'coin_decide', choice }, `Ban ${choice} set`)),
+  };
+
   // ------------------------------------------------------------ veto settings
   $('#bTitle').onclick = () => quiet(act({ action: 'config', title: $('#title').value }, 'Saved'));
   $('#title').addEventListener('keydown', e => e.key === 'Enter' && $('#bTitle').click());
@@ -516,6 +535,7 @@
     setVal($('#deciderSide'), v.s.deciderSide);
 
     renderSelects(v);
+    UI.coin($('#coin'), v, v.coin && !v.coin.choice ? coinOpts : { ...coinOpts, onChoose: null });
     renderPool(v);
     renderDb(v);
     renderWebhook(v);
@@ -530,7 +550,7 @@
     const isSide = v.current && v.current.type === 'side';
     $('#sideWrap').style.display = isSide ? 'block' : 'none';
     if (isSide) UI.sidePicker($('#side'), v, side => quiet(act({ action: 'choose', step: v.idx, side })));
-    UI.maps($('#maps'), v, true, async id => {
+    UI.maps($('#maps'), v, !v.coinPending, async id => {
       if (await UI.confirmMap(v, id, v.current.type)) quiet(act({ action: 'choose', step: v.idx, map: id }));
     });
     $('#summary').value = RV.summaryText(v);

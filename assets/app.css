@@ -136,6 +136,34 @@ a:hover { color: var(--orange-hover); }
 .tl.current .tl-val { color: var(--text); animation: pulse 1.4s infinite; }
 .tl.current.done .tl-val { animation: none; }
 
+/* ---------------------------------------------------------- coin toss */
+.coin-card { background: var(--surface); box-shadow: var(--shadow); border: 2px solid var(--orangeColor); border-radius: var(--r); padding: 22px 28px; }
+.coin-card[hidden] { display: none; }
+.coin-wrap { display: flex; align-items: center; gap: 28px; }
+.coin-stage { perspective: 800px; flex: none; width: 120px; height: 120px; }
+.coin { position: relative; width: 120px; height: 120px; transform-style: preserve-3d; }
+.coin-face { position: absolute; inset: 0; border-radius: 50%; display: grid; place-items: center; overflow: hidden; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  background: radial-gradient(circle at 35% 30%, #ffb26b 0%, var(--orangeColor) 45%, #b84a00 100%);
+  box-shadow: inset 0 0 0 5px rgba(255,255,255,.25), inset 0 0 0 9px rgba(0,0,0,.18), 0 10px 24px -8px rgba(0,0,0,.6); }
+.coin-face.b { transform: rotateY(180deg); background: radial-gradient(circle at 35% 30%, #e9edf1 0%, #9aa3ab 45%, #59626a 100%); }
+.coin-face img { width: 64%; height: 64%; object-fit: contain; filter: drop-shadow(0 2px 3px rgba(0,0,0,.35)); }
+.coin-face span { font-weight: var(--fw-bold); font-size: 54px; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,.35); }
+.coin.landed { animation: coinLand .35s ease-out; }
+@keyframes coinLand { 50% { filter: brightness(1.35); } }
+.coin-info { min-width: 0; flex: 1; }
+.coin-title { font-weight: var(--fw-semibold); font-size: 40px; line-height: 44px; text-transform: uppercase; margin-top: 4px; }
+.coin-title .tn { color: var(--orangeColor); }
+.coin-flipping { animation: pulse 1s infinite; }
+.coin-sub { color: var(--text-2); font-size: 20px; margin-top: 2px; }
+.coin-sub b { color: var(--text); font-weight: var(--fw-semibold); }
+.coin-result.pending { display: none; }
+.coin-btns { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+.coin-btns .btn { padding-left: 24px; padding-right: 24px; }
+.coin-admin { display: flex; gap: 6px; margin-top: 10px; }
+.coin-admin .lnk { color: var(--grey-3); text-transform: uppercase; font-size: 13px; font-weight: var(--fw-semibold); padding: 4px 6px 4px 0; margin-right: 8px; }
+.coin-admin .lnk:hover { color: var(--orangeColor); }
+.coin-admin .lnk.danger:hover { color: var(--bad); }
+
 /* ---------------------------------------------------------- mape */
 .maps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
 .map { position: relative; display: flex; flex-direction: column; text-align: left; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; background: var(--surface); box-shadow: var(--shadow); transition: border-color .15s, transform .15s, box-shadow .15s; }
@@ -258,6 +286,10 @@ a:hover { color: var(--orange-hover); }
   .team .logo-box { width: 56px; height: 56px; flex-basis: 56px; }
   .tour-block { padding: 20px; }
   .step-title { font-size: 32px; line-height: 36px; }
+  .coin-card { padding: 18px; }
+  .coin-wrap { flex-direction: column; text-align: center; gap: 16px; }
+  .coin-btns { justify-content: center; }
+  .coin-title { font-size: 28px; line-height: 32px; }
   .maps { grid-template-columns: repeat(2, 1fr); gap: 12px; }
   .map .body { padding: 10px 12px 12px; min-height: 80px; }
   .map .mname { font-size: 20px; line-height: 22px; }

@@ -86,7 +86,9 @@ const RV = (() => {
         if (['pick', 'decider'].includes(s.actions[i].type)) { sideMap = s.actions[i].map; break; }
       }
     }
-    return { s, steps, idx, current, done, status, played, catalog, mapImages, sideMap, db: db || [], settings: settings || {} };
+    const coin = s.coin || null;
+    const coinPending = !!(coin && !coin.choice && !s.actions.length);
+    return { s, steps, idx, current, done, status, played, catalog, mapImages, sideMap, coin, coinPending, db: db || [], settings: settings || {} };
   }
 
   const teamName = (v, t) => t ? v.s.teams[t].name : '';
@@ -113,6 +115,10 @@ const RV = (() => {
 
   function headline(v) {
     const total = v.steps.length;
+    if (v.coinPending) {
+      const w = `<span class="tn">${esc(teamName(v, v.coin.winner))}</span>`;
+      return { tag: 'Coin toss', cls: '', html: `${w} won the toss`, sub: 'Ban first or ban second?' };
+    }
     if (v.done) return { tag: `${v.s.format.toUpperCase()} · Veto complete`, cls: '', html: 'Veto <span class="tn">complete</span>', sub: 'Good luck, have fun.' };
     const c = v.current;
     const n = `Step ${v.idx + 1} / ${total}`;

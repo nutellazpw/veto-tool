@@ -3,7 +3,7 @@ const UI = (() => {
   const { esc } = RV;
 
   function teams(el, v) {
-    const active = v.current && v.current.team;
+    const active = !v.coinPending && v.current && v.current.team;
     el.innerHTML = ['a', 'b'].map((t, i) => `
       ${i === 1 ? '<div class="vs">VS</div>' : ''}
       <div class="team ${t} ${active === t ? 'active' : ''}">
@@ -36,7 +36,7 @@ const UI = (() => {
       const next = v.steps[i + 1];
       const sideIdx = next && next.type === 'side' ? i + 1 : -1;
       const sideAct = sideIdx > -1 ? v.s.actions[sideIdx] : null;
-      const isNow = v.idx === i || (sideIdx > -1 && v.idx === sideIdx);
+      const isNow = !v.coinPending && (v.idx === i || (sideIdx > -1 && v.idx === sideIdx));
       let value = 'Waiting', state = 'wait';
       if (act) { value = RV.mapName(v, act.map); state = 'done'; }
       else if (isNow) { value = st.type === 'decider' ? 'Last map' : (st.type === 'ban' ? 'Banning…' : 'Picking…'); state = 'now'; }
@@ -85,6 +85,79 @@ const UI = (() => {
       </button>`;
   }
 
+  // ------------------------------------------------------------ coin toss
+  let coinSeen = null;   // last toss id this page has shown (animate only new tosses)
+  function coinFace(v, t) {
+    const team = v.s.teams[t];
+    return team.logo ? `<img src="${esc(team.logo)}" alt="">` : `<span>${esc((team.name || '?').trim().charAt(0).toUpperCase())}</span>`;
+  }
+
+  /**
+   * Coin toss card. opts.onChoose(choice) shows the "ban first / second" buttons,
+   * opts.admin adds toss-again / clear controls.
+   */
+  function coin(el, v, opts = {}) {
+    const c = v.coin;
+    if (!c) {
+      if (coinSeen === null) coinSeen = 0;           // page was open with no toss → the next toss animates
+      el.innerHTML = ''; el.hidden = true; el.dataset.key = ''; return;
+    }
+    el.hidden = false;
+    const winner = RV.teamName(v, c.winner);
+    const key = [c.id, c.winner, c.choice, v.s.teams.a.name, v.s.teams.b.name, v.s.teams.a.logo, v.s.teams.b.logo, !!opts.onChoose, v.s.actions.length > 0].join('|');
+    if (el.dataset.key === key) return;            // nothing changed — keep a running animation alive
+    el.dataset.key = key;
+
+    const animate = coinSeen !== null && coinSeen !== c.id;
+    coinSeen = c.id;
+    const endDeg = 1800 + (c.winner === 'b' ? 180 : 0);
+
+    let result;
+    if (!c.choice) {
+      result = `
+        <div class="coin-title"><span class="tn">${esc(winner)}</span> won the toss</div>
+        <div class="coin-sub">${esc(winner)} chooses: ban first or ban second?</div>
+        ${opts.onChoose ? `<div class="coin-btns">
+          <button class="btn" data-c="first">${esc(winner)} bans first</button>
+          <button class="btn ghost" data-c="second">${esc(winner)} bans second</button>
+        </div>` : ''}`;
+    } else {
+      result = `
+        <div class="coin-title"><span class="tn">${esc(winner)}</span> won the toss</div>
+        <div class="coin-sub">${esc(winner)} chose to ban ${c.choice}${v.s.actions.length ? '' : ` — <b>${esc(RV.teamName(v, 'a'))}</b> starts the veto`}.</div>`;
+    }
+
+    el.innerHTML = `
+      <div class="coin-wrap">
+        <div class="coin-stage"><div class="coin" style="transform: rotateY(${endDeg}deg)">
+          <div class="coin-face a">${coinFace(v, 'a')}</div>
+          <div class="coin-face b">${coinFace(v, 'b')}</div>
+        </div></div>
+        <div class="coin-info">
+          <div class="step-cat">Coin toss</div>
+          <div class="coin-result">${result}</div>
+          ${opts.admin ? `<div class="coin-admin"><button class="lnk" data-toss>Toss again</button><button class="lnk danger" data-clear>Clear toss</button></div>` : ''}
+        </div>
+      </div>`;
+
+    el.querySelectorAll('[data-c]').forEach(b => b.onclick = () => opts.onChoose(b.dataset.c));
+    const t = el.querySelector('[data-toss]'); if (t) t.onclick = opts.onToss;
+    const x = el.querySelector('[data-clear]'); if (x) x.onclick = opts.onClear;
+
+    if (animate) {
+      const coinEl = el.querySelector('.coin'), res = el.querySelector('.coin-result');
+      res.classList.add('pending');
+      res.insertAdjacentHTML('beforebegin', '<div class="coin-title coin-flipping">Flipping…</div>');
+      const flipping = el.querySelector('.coin-flipping');
+      const anim = coinEl.animate([
+        { transform: 'translateY(0) rotateY(0deg)' },
+        { transform: `translateY(-34px) rotateY(${endDeg / 2}deg)`, offset: .45 },
+        { transform: `translateY(0) rotateY(${endDeg}deg)` },
+      ], { duration: 2200, easing: 'cubic-bezier(.25,.7,.35,1)' });
+      anim.onfinish = () => { flipping.remove(); res.classList.remove('pending'); coinEl.classList.add('landed'); };
+    }
+  }
+
   function maps(el, v, clickable, onPick) {
     el.innerHTML = v.s.pool.map(id => mapTile(v, id, clickable)).join('');
     if (clickable) el.querySelectorAll('.map.clickable').forEach(b => b.addEventListener('click', () => onPick(b.dataset.map)));
@@ -112,6 +185,24 @@ const UI = (() => {
           <div class="right">${side}</div>
         </div>`;
     }).join('');
+  }
+
+  /** Generic confirm sheet (same look as the map confirm). */
+  function confirmText(cat, html, okLabel) {
+    return new Promise(resolve => {
+      let bgEl = document.getElementById('confirm');
+      if (!bgEl) { bgEl = document.createElement('div'); bgEl.id = 'confirm'; bgEl.className = 'overlay-bg'; document.body.appendChild(bgEl); }
+      bgEl.innerHTML = `
+        <div class="sheet"><div class="body">
+          <div class="step-cat">${esc(cat)}</div>
+          <div class="q">${html}</div>
+          <div class="btns"><button class="btn ghost" data-r="0">Cancel</button><button class="btn" data-r="1">${esc(okLabel)}</button></div>
+        </div></div>`;
+      bgEl.classList.add('open');
+      const close = r => { bgEl.classList.remove('open'); resolve(r); };
+      bgEl.querySelectorAll('[data-r]').forEach(b => b.onclick = () => close(b.dataset.r === '1'));
+      bgEl.onclick = e => { if (e.target === bgEl) close(false); };
+    });
   }
 
   /** Confirm dialog for map choice. Returns a Promise<boolean>. */
@@ -144,5 +235,5 @@ const UI = (() => {
     });
   }
 
-  return { teams, banner, timeline, maps, sidePicker, results, confirmMap };
+  return { teams, banner, timeline, coin, confirmText, maps, sidePicker, results, confirmMap };
 })();

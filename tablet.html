@@ -40,6 +40,7 @@
 
     <div id="app">
       <section class="teams" id="teams"></section>
+      <section class="coin-card" id="coin" hidden></section>
       <section class="tour-block" id="banner"></section>
       <section class="timeline" id="timeline"></section>
       <section id="sideWrap"><div class="sidepick" id="side"></div></section>
@@ -73,11 +74,26 @@
     finally { busy = false; }
   }
 
+  async function decide(choice) {
+    if (busy) return;
+    const w = RV.teamName(RV.view(), RV.view().coin.winner);
+    if (!await UI.confirmText('Coin toss', `<span class="tn">${RV.esc(w)}</span> bans ${choice}?`, `Ban ${choice}`)) return;
+    busy = true;
+    try { await RV.post({ action: 'coin_decide', choice }); }
+    catch (e) { RV.toast(e.message, true); }
+    finally { busy = false; }
+  }
+
   function render(v) {
     document.getElementById('title').textContent = v.s.title;
     document.getElementById('fmt').textContent = v.s.format.toUpperCase();
     document.title = `Live Veto · ${v.s.teams.a.name} vs ${v.s.teams.b.name}`;
     UI.teams(document.getElementById('teams'), v);
+    // coin toss card replaces the step banner until the veto starts
+    const showCoin = !!v.coin && !v.s.actions.length;
+    const coinEl = document.getElementById('coin');
+    if (showCoin) UI.coin(coinEl, v, { onChoose: decide }); else UI.coin(coinEl, { coin: null });
+    document.getElementById('banner').style.display = showCoin ? 'none' : '';
     UI.banner(document.getElementById('banner'), v);
     UI.timeline(document.getElementById('timeline'), v);
 
@@ -85,7 +101,7 @@
     document.getElementById('sideWrap').style.display = isSide ? 'block' : 'none';
     if (isSide) UI.sidePicker(document.getElementById('side'), v, side => choose({ side }));
 
-    UI.maps(document.getElementById('maps'), v, true, async id => {
+    UI.maps(document.getElementById('maps'), v, !v.coinPending, async id => {
       if (await UI.confirmMap(v, id, v.current.type)) choose({ map: id });
     });
 

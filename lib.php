@@ -73,6 +73,7 @@ function default_state(): array {
         'teams'       => ['a' => blank_team('a'), 'b' => blank_team('b')],
         'actions'     => [],
         'webhook'     => null,         // result of the last Discord post for this veto
+        'coin'        => null,         // coin toss: ['id', 'winner' => a|b, 'choice' => null|first|second, 't']
     ];
 }
 
@@ -152,8 +153,41 @@ function auto_advance(array &$s): void {
     }
 }
 
+// ===================================================================== coin toss
+
+/** Flip a fair coin between the two teams in the match. */
+function coin_toss(array &$s): void {
+    $s['coin'] = [
+        'id'     => (int)($s['coin']['id'] ?? 0) + 1,
+        'winner' => random_int(0, 1) ? 'a' : 'b',
+        'choice' => null,
+        't'      => time(),
+    ];
+    $s['actions'] = [];
+}
+
+/**
+ * The toss winner decides to ban first or second. Team A always bans first,
+ * so the teams are swapped when needed and the veto starts clean.
+ */
+function coin_decide(array &$s, string $choice): void {
+    $c = $s['coin'];
+    if (!$c) throw new InvalidArgumentException('Do the coin toss first.');
+    if (!in_array($choice, ['first', 'second'], true)) throw new InvalidArgumentException('Choose first or second.');
+    if ($c['choice'] !== null) throw new InvalidArgumentException('The toss winner has already chosen.');
+    $want = $choice === 'first' ? 'a' : 'b';
+    if ($c['winner'] !== $want) {
+        $s['teams'] = ['a' => $s['teams']['b'], 'b' => $s['teams']['a']];
+        $c['winner'] = $want;
+    }
+    $c['choice'] = $choice;
+    $s['coin'] = $c;
+    $s['actions'] = [];
+}
+
 /** Apply a tablet/admin choice. $expectStep guards against double taps. */
 function apply_choice(array &$s, ?int $expectStep, ?string $map, ?string $side): void {
+    if (!empty($s['coin']) && $s['coin']['choice'] === null) throw new InvalidArgumentException('Waiting for the coin toss winner to choose.');
     $steps = build_steps($s);
     $i = count($s['actions']);
     if (!isset($steps[$i])) throw new InvalidArgumentException('The veto is already complete.');

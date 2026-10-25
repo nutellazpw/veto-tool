@@ -127,9 +127,25 @@ try {
         out($p);
     }
 
+    if ($action === 'coin_decide') { // the toss winner can choose on the tablet, or the admin does it
+        $s = mutate_state(function (&$s) use ($in, $admin) {
+            if (!$admin && $s['actions']) throw new InvalidArgumentException('The veto has already started.');
+            coin_decide($s, (string)($in['choice'] ?? ''));
+        });
+        out(payload_for($admin, $s));
+    }
+
     if (!$admin) out(['error' => 'Admin only.'], 403);
 
     switch ($action) {
+        case 'coin_toss':
+            $s = load_state();
+            if (!$s['teams']['a']['name'] || !$s['teams']['b']['name']) throw new InvalidArgumentException('Set both teams first.');
+            out(payload_for(true, mutate_state(function (&$s) { coin_toss($s); })));
+
+        case 'coin_clear':
+            out(payload_for(true, mutate_state(function (&$s) { $s['coin'] = null; })));
+
         case 'undo':
             $s = mutate_state(function (&$s) {
                 // pop the last real choice; an auto decider goes with the ban before it
@@ -144,6 +160,7 @@ try {
             out(payload_for(true, mutate_state(function (&$s) {
                 $s['teams'] = ['a' => $s['teams']['b'], 'b' => $s['teams']['a']];
                 $s['actions'] = [];
+                if ($s['coin']) $s['coin']['winner'] = other($s['coin']['winner']); // the winner moves with its team
             })));
 
         case 'match_teams': // pick both teams from the database
@@ -154,6 +171,7 @@ try {
             out(payload_for(true, mutate_state(function (&$s) use ($a, $b) {
                 $s['teams'] = ['a' => team_slot($a), 'b' => team_slot($b)];
                 $s['actions'] = [];
+                $s['coin'] = null; // new match → new toss
             })));
 
         case 'team_delete':
