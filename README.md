@@ -17,7 +17,7 @@ Everything syncs live (polling ~0.7 s).
 2. **Match setup** (top of the admin) — pick Team A and Team B from the dropdowns. The panel shows who the higher seed is, so you know whom to ask whether they want to be Team A (bans first) or Team B. Click **Set teams**.
    - Or use the coin toss — **🪙 Flip coin** on the tablet (once per match, before the veto starts) or **🪙 Coin toss** in the admin (any time, also to toss again): the server flips a fair coin, the tablet shows the flip, and the toss winner taps **Ban first** or **Ban second** on the tablet (the admin can also choose for them). Teams are swapped automatically so the right team starts. **Toss again** / **Clear toss** are in the coin card.
 3. The teams play the veto on `/tablet`. Map choices are locked until the toss winner has chosen.
-4. When the last step is played, the result is posted to Discord automatically (once per veto; **Post again** re-sends it).
+4. When the last step is played, the result is posted to every enabled Discord webhook automatically (once per veto).
 
 Seeds are only visible in the admin, never on the tablet or the overlay.
 
@@ -32,7 +32,9 @@ Once, by hand on the server (cPanel File Manager):
 Deploys also never touch `data/*.json` (veto state, team database, settings) or uploaded logos.
 
 ## Discord
-Set the webhook URL in the admin (Discord card → Save → Send test), or as `discord_webhook` in `config.local.php`. The admin value wins.
+Add as many webhooks as you need in the admin (⚙ Settings → Discord): each has a name and can be switched on/off, tested, renamed or deleted (max 10).
+When a veto finishes the result is posted to **every enabled webhook** once. The card shows per-webhook status (Posted / Failed), with **Retry failed** (only the ones that failed) and **Post again to all**.
+A `discord_webhook` in `config.local.php` is still supported — it shows up in the list as a read-only entry.
 
 ## Assets
 - Map images, RLG logo, relog favicon and the Anek Latin font live in `assets/` (self-hosted, works on a LAN without internet).

@@ -116,7 +116,7 @@ try {
         });
         $p = payload_for($admin, $s);
         // respond first, then talk to Discord so the tablet never waits on it
-        if (is_complete($s) && effective_webhook() !== '') {
+        if (is_complete($s) && active_webhooks()) {
             echo json_encode($p, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             if (function_exists('fastcgi_finish_request')) fastcgi_finish_request();
             else { @ob_end_flush(); @flush(); }
@@ -195,24 +195,49 @@ try {
             if ($gone) { delete_logo($gone['logo'] ?? ''); sync_match_team($id, null); }
             out(payload_for(true));
 
-        case 'settings':
-            $url = trim((string)($in['webhook'] ?? ''));
-            if ($url !== '' && !valid_webhook($url)) throw new InvalidArgumentException('That is not a Discord webhook URL (https://discord.com/api/webhooks/…).');
-            write_json('settings', ['webhook' => ''], function (&$d) use ($url) { $d['webhook'] = $url; });
+        case 'webhook_add':
+            $name = mb_substr(trim((string)($in['name'] ?? '')), 0, 40) ?: 'Discord';
+            $url = trim((string)($in['url'] ?? ''));
+            if (!valid_webhook($url)) throw new InvalidArgumentException('That is not a Discord webhook URL (https://discord.com/api/webhooks/…).');
+            mutate_webhooks(function (&$list) use ($name, $url) {
+                if (count($list) >= MAX_WEBHOOKS) throw new InvalidArgumentException('Maximum ' . MAX_WEBHOOKS . ' webhooks.');
+                foreach ($list as $w) if ($w['url'] === $url) throw new InvalidArgumentException("That webhook is already added ({$w['name']}).");
+                $list[] = ['id' => bin2hex(random_bytes(4)), 'name' => $name, 'url' => $url, 'enabled' => true];
+            });
+            out(payload_for(true));
+
+        case 'webhook_update': // rename / enable / disable
+            $id = (string)($in['id'] ?? '');
+            mutate_webhooks(function (&$list) use ($id, $in) {
+                foreach ($list as &$w) {
+                    if ($w['id'] !== $id) continue;
+                    if (isset($in['name'])) $w['name'] = mb_substr(trim((string)$in['name']), 0, 40) ?: 'Discord';
+                    if (isset($in['enabled'])) $w['enabled'] = (bool)$in['enabled'];
+                    return;
+                }
+                throw new InvalidArgumentException($id === 'config' ? 'That webhook is set in config.local.php — edit it there.' : 'Webhook not found.');
+            });
+            out(payload_for(true));
+
+        case 'webhook_delete':
+            $id = (string)($in['id'] ?? '');
+            if ($id === 'config') throw new InvalidArgumentException('That webhook is set in config.local.php — remove it there.');
+            mutate_webhooks(function (&$list) use ($id) { $list = array_filter($list, fn($w) => $w['id'] !== $id); });
             out(payload_for(true));
 
         case 'webhook_test':
-            $url = effective_webhook();
-            if ($url === '') throw new InvalidArgumentException('No webhook set.');
-            [$ok, $code, $err] = post_discord($url, ['username' => 'Relog Veto', 'content' => '✅ Relog veto tool is connected. Finished vetoes will be posted here.', 'allowed_mentions' => ['parse' => []]]);
-            if (!$ok) throw new InvalidArgumentException('Discord rejected the test: ' . $err);
+            $w = find_webhook((string)($in['id'] ?? ''));
+            if (!$w) throw new InvalidArgumentException('Webhook not found.');
+            [$ok, $code, $err] = post_discord($w['url'], ['username' => 'Relog Veto', 'content' => '✅ Relog veto tool is connected. Finished vetoes will be posted here.', 'allowed_mentions' => ['parse' => []]]);
+            if (!$ok) throw new InvalidArgumentException("{$w['name']}: Discord rejected the test — $err");
             out(['ok' => true] + payload_for(true));
 
-        case 'webhook_resend':
+        case 'webhook_resend': // all enabled webhooks, or only the given ids (e.g. the ones that failed)
             if (!is_complete(load_state())) throw new InvalidArgumentException('The veto is not finished yet.');
-            $r = maybe_send_webhook(true);
-            if (!$r) throw new InvalidArgumentException('No webhook set.');
-            if ($r['status'] !== 'sent') throw new InvalidArgumentException('Discord error: ' . $r['error']);
+            $ids = isset($in['ids']) ? array_map('strval', (array)$in['ids']) : null;
+            $r = maybe_send_webhook(true, $ids);
+            if (!$r) throw new InvalidArgumentException('No enabled webhook.');
+            if ($r['status'] !== 'sent') throw new InvalidArgumentException('Discord error — ' . $r['error']);
             out(payload_for(true));
 
         case 'config':

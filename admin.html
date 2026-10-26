@@ -83,6 +83,18 @@
   .form-btns .btn { flex: 1; padding-left: 12px; padding-right: 12px; }
 
   /* ---- discord */
+  .wh-list { display: flex; flex-direction: column; }
+  .wh-row { display: grid; grid-template-columns: auto minmax(0,1fr) auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
+  .wh-row:last-child { border-bottom: 0; }
+  .wh-row.off .wh-name, .wh-row.off .wh-url { opacity: .45; }
+  .wh-name { font-weight: var(--fw-semibold); font-size: 17px; overflow-wrap: anywhere; }
+  .wh-name .res { margin-left: 6px; vertical-align: 2px; font-size: 11px; padding: 1px 6px; }
+  .wh-url { font: 12px/1.3 ui-monospace, Menlo, Consolas, monospace; color: var(--grey-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .wh-act { display: flex; gap: 2px; }
+  .wh-row .sw { width: 42px; height: 22px; }
+  .wh-row .sw::after { width: 12px; height: 12px; }
+  .wh-row .sw.on::after { left: 23px; }
+  .wh-add { display: grid; grid-template-columns: 1fr 1.6fr; gap: 14px; }
   .wh-status { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 14px; font-size: 15px; }
   .pill { text-transform: uppercase; font-weight: var(--fw-semibold); font-size: 13px; padding: 3px 9px; border: 2px solid var(--line); border-radius: 0 8px 0 8px; color: var(--grey-3); }
   .pill.ok { border-color: var(--ok); color: var(--ok); }
@@ -119,6 +131,7 @@
 
   @media (max-width: 1000px) { .settings-grid, .bottom-grid { grid-template-columns: 1fr; } }
   @media (max-width: 760px) {
+    .wh-add { grid-template-columns: 1fr; }
     .match-grid { grid-template-columns: 1fr; }
     .setup-btns .btn { flex: 1; }
     .live-col .maps { grid-template-columns: repeat(2, 1fr); }
@@ -238,15 +251,18 @@
       </div>
 
       <div class="card">
-        <h3>Discord</h3>
-        <label class="f first" for="webhook">Webhook URL</label>
-        <input class="in sm" id="webhook" placeholder="https://discord.com/api/webhooks/…" spellcheck="false">
-        <div class="form-btns">
-          <button class="btn ghost sm" id="bWhTest">Send test</button>
-          <button class="btn sm" id="bWhSave">Save</button>
-        </div>
+        <h3>Discord <span class="count" id="whCount">0</span></h3>
+        <div class="wh-list" id="whList"></div>
         <div class="wh-status" id="whStatus"></div>
-        <p class="hint">When the last step of a veto is played, the result is posted to this channel automatically (once per veto).</p>
+        <form class="db-form" id="whForm" autocomplete="off">
+          <div class="form-title">Add webhook</div>
+          <div class="wh-add">
+            <div><label class="f first" for="whName">Name</label><input class="in sm" id="whName" maxlength="40" placeholder="e.g. #veto-results"></div>
+            <div><label class="f first" for="whUrl">Webhook URL</label><input class="in sm" id="whUrl" placeholder="https://discord.com/api/webhooks/…" spellcheck="false" required></div>
+          </div>
+          <div class="form-btns"><button class="btn sm" id="whAdd">Add webhook</button></div>
+        </form>
+        <p class="hint">When the last step of a veto is played, the result is posted to every enabled webhook automatically (once per veto).</p>
       </div>
       </div>
     </div>
@@ -485,33 +501,72 @@
     finally { $('#tSave').disabled = false; }
   });
 
-  // ------------------------------------------------------------ discord
-  $('#bWhSave').onclick = () => quiet(act({ action: 'settings', webhook: $('#webhook').value.trim() }, 'Webhook saved'));
-  $('#bWhTest').onclick = async () => {
-    try {
-      await RV.post({ token, action: 'settings', webhook: $('#webhook').value.trim() });
-      await act({ action: 'webhook_test' }, 'Test message sent to Discord');
-    } catch (e) { RV.toast(e.message, true); }
-  };
+  // ------------------------------------------------------------ discord (multiple webhooks)
+  $('#whForm').addEventListener('submit', e => {
+    e.preventDefault();
+    act({ action: 'webhook_add', name: $('#whName').value.trim(), url: $('#whUrl').value.trim() }, 'Webhook added')
+      .then(() => $('#whForm').reset()).catch(() => {});
+  });
+
   function renderWebhook(v) {
     const set = v.settings || {};
-    const inp = $('#webhook');
-    if (document.activeElement !== inp && !inp.dataset.dirty) inp.value = set.webhook || '';
+    const hooks = set.webhooks || [];
     const w = v.s.webhook;
-    let html = `<span class="pill ${set.webhookActive ? 'ok' : ''}">${set.webhookActive ? 'Webhook on' : 'No webhook'}</span>`;
-    if (v.done && set.webhookActive) {
-      if (!w) html += '<span class="pill wait">Not posted yet</span>';
-      else if (w.status === 'sent') html += `<span class="pill ok">Posted to Discord</span>`;
-      else if (w.status === 'sending') html += '<span class="pill wait">Posting…</span>';
-      else html += `<span class="pill bad" title="${esc(w.error || '')}">Post failed</span>`;
-      html += '<button class="lnk" id="bResend">Post again</button>';
+    const res = {};
+    ((w && w.results) || []).forEach(r => res[r.id] = r);
+    $('#whCount').textContent = hooks.length;
+
+    const key = JSON.stringify([hooks, w, v.done]);
+    if ($('#whList').dataset.key !== key) {
+      $('#whList').dataset.key = key;
+      $('#whList').innerHTML = hooks.length ? hooks.map(h => {
+        const r = v.done && res[h.id];
+        const badge = r ? (r.ok ? '<span class="pill ok res">Posted</span>' : `<span class="pill bad res" title="${esc(r.error || '')}">Failed</span>`) : '';
+        return `
+        <div class="wh-row ${h.enabled ? '' : 'off'}">
+          <button class="sw ${h.enabled ? 'on' : ''}" data-tog="${h.id}" ${h.locked ? 'disabled title="Set in config.local.php"' : ''} aria-label="Enable ${esc(h.name)}"></button>
+          <div style="min-width:0"><div class="wh-name">${esc(h.name)}${badge}</div><div class="wh-url">${esc(h.locked ? 'config.local.php · ' + h.masked : h.masked)}</div></div>
+          <div class="wh-act">
+            <button class="lnk" data-test="${h.id}">Test</button>
+            ${h.locked ? '' : `<button class="lnk" data-ren="${h.id}">Rename</button><button class="lnk danger" data-del="${h.id}">Delete</button>`}
+          </div>
+        </div>`;
+      }).join('') : '<div class="db-empty">No webhooks yet — add one below.</div>';
+      const byId = id => hooks.find(h => h.id === id);
+      $('#whList').querySelectorAll('[data-tog]').forEach(b => b.onclick = () => {
+        const h = byId(b.dataset.tog);
+        quiet(act({ action: 'webhook_update', id: h.id, enabled: !h.enabled }, `${h.name}: ${h.enabled ? 'off' : 'on'}`));
+      });
+      $('#whList').querySelectorAll('[data-test]').forEach(b => b.onclick = () => quiet(act({ action: 'webhook_test', id: b.dataset.test }, `Test sent to ${byId(b.dataset.test).name}`)));
+      $('#whList').querySelectorAll('[data-ren]').forEach(b => b.onclick = () => {
+        const h = byId(b.dataset.ren);
+        const name = prompt('Webhook name', h.name);
+        if (name && name.trim() && name.trim() !== h.name) quiet(act({ action: 'webhook_update', id: h.id, name: name.trim() }, 'Renamed'));
+      });
+      $('#whList').querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
+        const h = byId(b.dataset.del);
+        if (confirm(`Delete webhook "${h.name}"?`)) quiet(act({ action: 'webhook_delete', id: h.id }, 'Webhook deleted'));
+      });
     }
-    $('#whStatus').innerHTML = html;
-    const rs = $('#bResend');
-    if (rs) rs.onclick = () => quiet(act({ action: 'webhook_resend' }, 'Posted to Discord'));
+
+    // status of this veto's post
+    const active = hooks.filter(h => h.enabled).length;
+    let html = `<span class="pill ${active ? 'ok' : ''}">${active ? `${active} webhook${active > 1 ? 's' : ''} on` : 'No webhook on'}</span>`;
+    if (v.done && active) {
+      if (!w) html += '<span class="pill wait">Not posted yet</span>';
+      else if (w.status === 'sent') html += '<span class="pill ok">Posted to Discord</span>';
+      else if (w.status === 'sending') html += '<span class="pill wait">Posting…</span>';
+      else html += `<span class="pill bad" title="${esc(w.error || '')}">${w.status === 'partial' ? 'Some posts failed' : 'Post failed'}</span>`;
+      const failed = ((w && w.results) || []).filter(r => !r.ok).map(r => r.id);
+      if (failed.length) html += `<button class="lnk" id="bRetry">Retry failed</button>`;
+      html += '<button class="lnk" id="bResend">Post again to all</button>';
+      $('#whStatus').innerHTML = html;
+      const rt = $('#bRetry'); if (rt) rt.onclick = () => quiet(act({ action: 'webhook_resend', ids: failed }, 'Posted to Discord'));
+      $('#bResend').onclick = () => confirm('Post the result again to every enabled webhook?') && quiet(act({ action: 'webhook_resend' }, 'Posted to Discord'));
+    } else {
+      $('#whStatus').innerHTML = html;
+    }
   }
-  $('#webhook').addEventListener('input', e => e.target.dataset.dirty = '1');
-  $('#bWhSave').addEventListener('click', () => delete $('#webhook').dataset.dirty);
 
   // ------------------------------------------------------------ links / copy
   document.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => copy($('#' + b.dataset.copy).textContent));

@@ -230,10 +230,9 @@ function admin_payload(array $s): array {
     $p = public_payload($s);
     $p['state'] = $s;
     $p['db'] = load_teams();
-    $settings = load_settings();
     $p['settings'] = [
-        'webhook'       => $settings['webhook'],
-        'webhookActive' => effective_webhook() !== '',
+        'webhooks' => array_map(fn($w) => $w + ['masked' => mask_webhook($w['url'])], load_webhooks()),
+        'webhookActive' => count(active_webhooks()) > 0,
     ];
     return $p;
 }
@@ -258,11 +257,58 @@ function team_slot(array $t): array {
 
 // ===================================================================== settings + Discord
 
-function load_settings(): array { return array_replace(['webhook' => ''], read_json('settings', [])); }
+const MAX_WEBHOOKS = 10;
 
-function effective_webhook(): string {
-    $w = trim(load_settings()['webhook']);
-    return $w !== '' ? $w : DISCORD_WEBHOOK_DEFAULT;
+function load_settings(): array { return array_replace(['webhooks' => [], 'webhook' => ''], read_json('settings', [])); }
+
+/** Upgrade the old single-webhook setting to the list format. */
+function migrate_settings(array &$d): void {
+    $d['webhooks'] = array_values($d['webhooks'] ?? []);
+    if (!empty($d['webhook'])) {
+        $d['webhooks'][] = ['id' => bin2hex(random_bytes(4)), 'name' => 'Discord', 'url' => $d['webhook'], 'enabled' => true];
+    }
+    unset($d['webhook']);
+}
+
+/**
+ * All webhooks: the ones saved in the admin, plus the optional one from config.local.php
+ * (shown as read-only, id "config").
+ */
+function load_webhooks(): array {
+    $d = load_settings();
+    if (!empty($d['webhook'])) {               // old single webhook → save it once as a list entry (stable id)
+        mutate_webhooks(function (&$list) {});
+        $d = load_settings();
+    }
+    $list = array_map(fn($w) => [
+        'id' => (string)$w['id'], 'name' => (string)($w['name'] ?? 'Discord'),
+        'url' => (string)$w['url'], 'enabled' => (bool)($w['enabled'] ?? true), 'locked' => false,
+    ], $d['webhooks']);
+    if (DISCORD_WEBHOOK_DEFAULT !== '' && !in_array(DISCORD_WEBHOOK_DEFAULT, array_column($list, 'url'), true)) {
+        $list[] = ['id' => 'config', 'name' => 'config.local.php', 'url' => DISCORD_WEBHOOK_DEFAULT, 'enabled' => true, 'locked' => true];
+    }
+    return $list;
+}
+
+function active_webhooks(): array { return array_values(array_filter(load_webhooks(), fn($w) => $w['enabled'])); }
+
+function find_webhook(string $id): ?array {
+    foreach (load_webhooks() as $w) if ($w['id'] === $id) return $w;
+    return null;
+}
+
+/** Edit the saved webhook list under a lock. */
+function mutate_webhooks(callable $fn): void {
+    write_json('settings', ['webhooks' => []], function (&$d) use ($fn) {
+        migrate_settings($d);
+        $fn($d['webhooks']);
+        $d['webhooks'] = array_values($d['webhooks']);
+    });
+}
+
+/** https://discord.com/api/webhooks/123…/abc… → discord.com/…/1234…/•••• */
+function mask_webhook(string $url): string {
+    return preg_match('~webhooks/(\d+)/~', $url, $m) ? 'discord.com/api/webhooks/' . substr($m[1], 0, 6) . '…/••••••' : '••••••';
 }
 
 function valid_webhook(string $url): bool {
@@ -342,23 +388,41 @@ function post_discord(string $url, array $payload): array {
  * Post the finished veto to Discord once. Called after every state change;
  * claims the send under the state lock so two requests can never double-post.
  */
-function maybe_send_webhook(bool $force = false): ?array {
-    $url = effective_webhook();
-    if ($url === '') return null;
+function maybe_send_webhook(bool $force = false, ?array $onlyIds = null): ?array {
+    $hooks = active_webhooks();
+    if ($onlyIds !== null) $hooks = array_values(array_filter($hooks, fn($w) => in_array($w['id'], $onlyIds, true)));
+    if (!$hooks) return null;
 
     $claimed = false;
-    $s = write_json('state', default_state(), function (&$s) use (&$claimed, $force) {
+    $previous = [];
+    $s = write_json('state', default_state(), function (&$s) use (&$claimed, &$previous, $force) {
         $s = normalize_state($s);
         if (!is_complete($s)) return;
         if (!$force && $s['webhook'] !== null) return;
-        $s['webhook'] = ['status' => 'sending', 't' => time()];
+        $previous = $s['webhook']['results'] ?? [];
+        $s['webhook'] = ['status' => 'sending', 'results' => $previous, 't' => time()];
         $claimed = true;
     });
     if (!$claimed) return null;
 
     $s = normalize_state($s);
-    [$ok, $code, $err] = post_discord($url, discord_message($s));
-    $result = ['status' => $ok ? 'sent' : 'failed', 'code' => $code, 'error' => $err, 't' => time()];
+    $msg = discord_message($s);
+
+    // keep earlier per-webhook results when only re-sending to some of them
+    $results = [];
+    foreach (($onlyIds !== null ? $previous : []) as $r) $results[$r['id']] = $r;
+    foreach ($hooks as $w) {
+        [$ok, $code, $err] = post_discord($w['url'], $msg);
+        $results[$w['id']] = ['id' => $w['id'], 'name' => $w['name'], 'ok' => $ok, 'code' => $code, 'error' => $err];
+    }
+    $results = array_values($results);
+    $okCount = count(array_filter($results, fn($r) => $r['ok']));
+    $result = [
+        'status'  => $okCount === count($results) ? 'sent' : ($okCount ? 'partial' : 'failed'),
+        'results' => $results,
+        'error'   => implode('; ', array_map(fn($r) => $r['name'] . ': ' . $r['error'], array_filter($results, fn($r) => !$r['ok']))),
+        't'       => time(),
+    ];
     write_json('state', default_state(), function (&$st) use ($result) {
         $st['webhook'] = $result;
         $st['version'] = ($st['version'] ?? 0) + 1; // let the admin panel pick up the status
